@@ -9,6 +9,8 @@ import os
 import sys
 import time
 
+import numpy as np
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -56,7 +58,7 @@ def main():
         from model import load_lis_model
         ip = ItemProcessor(target_size=256, tokenizer=args.tokenizer_path)
         toks = build_prompt_tokens(Image.fromarray(img), Image.fromarray(img), task.language, ip, [], [],
-                                   [0.0] * 8, "his_2_third_view_wrist_w_state")
+                                   np.zeros(8), "his_2_third_view_wrist_w_state")
         report["prompt_tokens"] = len(toks)
         t = time.time()
         model = load_lis_model(args.ckpt, action_dim=7, time_horizon=args.time_horizon, max_position_embeddings=8192,
@@ -64,11 +66,11 @@ def main():
         report["model_load_s"] = round(time.time() - t, 1)
         from libero_util.lis_utils import get_action_lis
         for search in (False, True):
-            get_action_lis(model, Image.fromarray(img), Image.fromarray(img), task.language, ip, [], [], [0.0] * 8,
+            get_action_lis(model, Image.fromarray(img), Image.fromarray(img), task.language, ip, [], [], np.zeros(8),
                            "his_2_third_view_wrist_w_state", enable_search=search)  # warm-up
             torch.cuda.synchronize()
             t = time.time()
-            a = get_action_lis(model, Image.fromarray(img), Image.fromarray(img), task.language, ip, [], [], [0.0] * 8,
+            a = get_action_lis(model, Image.fromarray(img), Image.fromarray(img), task.language, ip, [], [], np.zeros(8),
                                "his_2_third_view_wrist_w_state", enable_search=search)
             torch.cuda.synchronize()
             report[f"query_s_search{int(search)}"] = round(time.time() - t, 3)
