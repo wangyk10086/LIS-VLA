@@ -16,20 +16,20 @@ TOK=$RV/ckpts/lumina_tokenizer
 CK=$RV/ckpts/RynnVLA-002/VLA_model_256
 LIMIT=""; [ "$SMOKE" = 1 ] && LIMIT="--limit 2" && OUT=/workspace/results/phase0_smoke
 mkdir -p $OUT/logs
-cd $RV
+cd $RV/exps_lis   # RynnVLA-002 loads tokenizers via "../ckpts/..." relative to the CWD
 
 run() {  # name kind suite H extra-args...
   local name=$1 kind=$2 suite=$3 H=$4; shift 4
   source $RV/exps_lis/runpod/pod_env.sh $kind >/dev/null
   echo "[$(date +%H:%M)] job $name (shard $SHARD/$NUM)"
-  python eval_lis_libero.py --ckpt $CK/$suite --suite $suite --time_horizon $H --tokenizer_path $TOK \
+  python $RV/eval_lis_libero.py --ckpt $CK/$suite --suite $suite --time_horizon $H --tokenizer_path $TOK \
     --search 0 --shard $SHARD --num_shards $NUM --out $OUT/$name $LIMIT "$@" \
     >> $OUT/logs/${name}_shard${SHARD}.log 2>&1
   echo "[$(date +%H:%M)] job $name exit=$?"
 }
 
 source $RV/exps_lis/runpod/pod_env.sh plus
-python tools/preflight.py --ckpt $CK/libero_goal --tokenizer_path $TOK | tee $OUT/logs/preflight_shard${SHARD}.log
+python $RV/tools/preflight.py --ckpt $CK/libero_goal --tokenizer_path $TOK | tee $OUT/logs/preflight_shard${SHARD}.log
 [ ${PIPESTATUS[0]} -eq 0 ] || { echo "preflight failed - stopping"; exit 1; }
 
 CATS=("Robot Initial States" "Objects Layout")
