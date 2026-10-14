@@ -6,7 +6,15 @@
 W=/workspace
 KIND=${1:-plus}
 if ! ldconfig -p | grep -q libMagickWand; then
-  apt-get update -qq && apt-get install -y -qq libegl1 libgl1 libglib2.0-0 libmagickwand-dev libexpat1 libfontconfig1 >/dev/null
+  apt-get update -qq && apt-get install -y -qq libegl1 libgl1 libglib2.0-0 libmagickwand-dev libexpat1 libfontconfig1 unzip >/dev/null
+fi
+# LIBERO-plus assets live on local disk (see setup_volume.sh); unpack once per pod (~2 min)
+if [ "$KIND" != vanilla ] && [ ! -d /root/lpassets/new_objects ] && [ -f $W/hf/libero_plus/assets.zip ]; then
+  echo "unpacking LIBERO-plus assets to local disk..."
+  rm -rf /root/lpassets_tmp && mkdir -p /root/lpassets_tmp
+  unzip -q -o $W/hf/libero_plus/assets.zip -d /root/lpassets_tmp
+  A=$(dirname "$(find /root/lpassets_tmp -maxdepth 4 -type d -name new_objects | head -1)")
+  rm -rf /root/lpassets && mv "$A" /root/lpassets && rm -rf /root/lpassets_tmp
 fi
 source $W/venv/bin/activate
 export HF_HOME=$W/hf

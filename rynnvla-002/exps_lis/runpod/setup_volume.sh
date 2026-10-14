@@ -48,19 +48,19 @@ uv pip install -q -p $W/venv/bin/python -c $W/constraints.txt -e $REPO   # xllmx
 step "LIBERO (vanilla) and LIBERO-plus"
 [ -d $W/third_party/LIBERO ] || git clone -q --depth 1 https://github.com/Lifelong-Robot-Learning/LIBERO.git $W/third_party/LIBERO
 [ -d $W/third_party/LIBERO-plus ] || git clone -q --depth 1 https://github.com/sylvestf/LIBERO-plus.git $W/third_party/LIBERO-plus
+# The LIBERO-plus asset pack is ~460k small files (8.9 GB): far too slow to unpack onto the
+# network volume. We keep only the zip on the volume; pod_env.sh unpacks it onto each pod's
+# local disk at /root/lpassets, and the package's assets dir is a symlink to that local path.
 PLUS_ASSETS=$W/third_party/LIBERO-plus/libero/libero/assets
-if [ ! -d $PLUS_ASSETS/new_objects ]; then
+if [ ! -f /workspace/hf/libero_plus/assets.zip ]; then
   $W/venv/bin/python - <<'EOF'
 from huggingface_hub import hf_hub_download
 p = hf_hub_download("Sylvest/LIBERO-plus", "assets.zip", repo_type="dataset", local_dir="/workspace/hf/libero_plus")
 print(p)
 EOF
-  rm -rf $PLUS_ASSETS && mkdir -p /workspace/hf/libero_plus/unz
-  unzip -q -o /workspace/hf/libero_plus/assets.zip -d /workspace/hf/libero_plus/unz
-  A=$(dirname $(find /workspace/hf/libero_plus/unz -type d -name new_objects | head -1))
-  mv "$A" $PLUS_ASSETS
 fi
-ls $PLUS_ASSETS | head
+if [ ! -L $PLUS_ASSETS ]; then rm -rf $PLUS_ASSETS; ln -s /root/lpassets $PLUS_ASSETS; fi
+ls -la $PLUS_ASSETS
 for kind in vanilla plus; do
   [ $kind = vanilla ] && R=$W/third_party/LIBERO/libero/libero || R=$W/third_party/LIBERO-plus/libero/libero
   cat > $W/libero_cfg/$kind/config.yaml <<EOF
