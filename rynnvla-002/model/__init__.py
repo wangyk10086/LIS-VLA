@@ -7,3 +7,4 @@ from .modeling_xllmx_chameleon_ck_action_head_conti_only import ChameleonXLLMXFo
 from .chameleon import ChameleonForConditionalGeneration
 from .chameleon import ChameleonConfig
 
+from .modeling_lis_vla import LISVLAConfig, ChameleonXLLMXForConditionalGeneration_LIS, load_lis_model, reset_lis_parameters

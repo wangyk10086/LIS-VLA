@@ -1,0 +1,8 @@
+LIS-VLA
+Copyright 2026 the LIS-VLA authors.
+
+This project is a derivative of RynnVLA-002
+(https://github.com/alibaba-damo-academy/RynnVLA-002), Copyright Alibaba DAMO Academy,
+which is distributed under the Apache License 2.0. The original code is kept in this
+repository with its structure; files added or modified for LIS-VLA are listed in README.md
+("What changed vs. RynnVLA-002"). The original README is preserved as README_RynnVLA-002.md.

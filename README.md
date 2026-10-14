@@ -1,430 +1,141 @@
-<p align="center">
-    <img src="rynnvla-002/assets/logo.png?raw=true" width="80" style="margin-bottom: 0.1;"/>
-<p>
+# LIS-VLA: Latent Imagination Search VLA
 
-<h3 align="center"><a href="" style="color:#9C276A">
-RynnVLA-002: A Unified Vision-Language-Action and World Model</a></h3>
-<h5 align="center"> If our project helps you, please give us a star ⭐ on GitHub to support us. 🙏🙏 </h2>
+> 在 [RynnVLA-002](https://github.com/alibaba-damo-academy/RynnVLA-002) 之上，把 “感知 → 动作” 的单向流程改造成 **隐空间内的闭环搜索**：一次 backbone 前向，生成 N 个候选动作块，在隐空间里“想象”各自的未来，用语言指令打分，选最优的执行。
 
+![LIS-VLA architecture](rynnvla-002/assets/lis_vla_architecture.png)
 
-<h5 align="center">
+## 核心思想
 
-[![arXiv](https://img.shields.io/badge/Arxiv-2511.17502-AD1C18.svg?logo=arXiv)](https://arxiv.org/pdf/2511.17502) 
-[![hf_checkpoint](https://img.shields.io/badge/🤗-Checkpoints-9C276A.svg)](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002)
-[![License](https://img.shields.io/badge/License-Apache%202.0-yellow)](./LICENSE) 
-</h5>
+| 模块 | 图中位置 | 实现（`rynnvla-002/model/lis/modules.py`） |
+|---|---|---|
+| Encoder → $z_t$ | Input Layer | Chameleon backbone（RynnVLA-002）。$z_t$ = `ObservationEncoder`：对当前帧各视角 **VQ token 的输入嵌入** 做 Perceiver 式注意力池化，得到 Q 个 latent tokens（默认 16×512）。它只依赖观测本身，因此同一个编码器也能给出未来帧的目标 $z_{t+k}$。 |
+| Action Proposer | System 2 | `FlowMatchingProposer`：rectified-flow 头，条件为 RynnVLA 动作头的 action-query 特征 + backbone 上下文 tokens $c_t$；Euler 10 步并行采样 N 个动作块 $A^1..A^N$。候选 #0 固定为 System 1（原 L1 动作头）的确定性输出，保证搜索结果不劣于“不搜索”的打分。 |
+| Latent World Model | System 2 | `LatentWorldModel`：$\hat z_{t+k} = z_t + D([z_t; c_t; A])$，Transformer 动力学头；输出层零初始化（未训练时等价于“世界不变”）。不生成像素，k = H（动作块长度）。 |
+| Language-Guided Evaluator | System 2 | `LanguageGuidedEvaluator`：$R = \cos(\phi(\hat z_{t+k}), \psi(g))$，$g$ 为 backbone 对指令 token 的隐状态池化。 |
+| Selection | Decision | $A^* = \arg\max_i \; R^i - \text{Cost}(A^i)$，可选 CEM 精炼若干轮；执行整块（与 RynnVLA-002 一致的 action chunking）。 |
 
-<div align="center"><video src="https://github.com/user-attachments/assets/a09f6b8b-7707-4478-b069-2de1629c0b83" width="800" autoplay loop muted></div>
+### 搜索目标
 
-## 📰 News
+$$
+A_t^* = \arg\max_{A \in \{A^i\}_{i=1}^N} \; \mathrm{Sim}\big(\phi(\hat z_{t+k}),\, \psi(g)\big) - \mathrm{Cost}(A), \qquad \hat z_{t+k} = \mathcal{WM}(z_t, c_t, A)
+$$
 
-* **[2025.11.10]**  Upgrade WorldVLA to RynnVLA-002. Release models, training code and evaluation code on LIBERO simulation benchmark and real-world LeRobot experiments.
-* **[2025.06.23]**  Release models, training code and evaluation code on LIBERO action generation benchmark of WorldVLA.
+$$
+\mathrm{Cost}(A) = \lambda_s \frac{1}{H-1}\sum_{i}\lVert a_{i+1}^{\text{arm}} - a_i^{\text{arm}}\rVert^2 + \lambda_p \frac{1}{H}\lVert A - A^{\text{S1}}\rVert^2
+$$
 
+说明：当前世界模型是确定性的，因此原式中的期望 $\mathbb{E}_{\hat z\sim\mathcal{WM}}$ 退化为单次预测；平滑项不作用于夹爪维度（夹爪本来就需要跳变）。$A^{\text{S1}}$ 是 System 1 的输出，$\lambda_p$ 默认 0。
 
-## 🌟 Introduction
-RynnVLA-002 is an autoregressive action world model that unifies action and image understanding and generation. RynnVLA-002 intergrates Vision-Language-Action (VLA) model (action model) and world model in one single framework. Compared to WorldVLA, RynnVLA-002 adds a continous Action Transformer, wrist camera input and generation, and state input. RynnVLA-002 achieves 97.4% success rate on LIBERO benchmark.
+### 训练目标（全部在 latent 空间）
 
-<div style="text-align: center;">
-  <img src="rynnvla-002/assets/overview.png" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
-</div>
-<br>
+LIS 训练样本把“执行动作块后到达的未来帧”拼到 VLA 序列后面，一条序列同时监督所有模块：
 
-### VLA Model Results (Text + Image -> Action)
-VLA model generates actions given the text instruction and image observations.
-
-|         |         |         |  
-| :-----: | :-----: | :-----: |  
-| ![Open drawer](rynnvla-002/assets/action_model_open_the_middle_drawer_of_the_cabinet.gif) | ![Pick up soup](rynnvla-002/assets/action_model_pick_up_the_alphabet_soup_and_place_it_in_the_bask.gif) | ![Pick up bowl](rynnvla-002/assets/action_model_pick_up_the_black_bowl_between_the_plate_and_the_r.gif) |
-<br>
-
-
-
-### World Model Results (Action + Image -> Image)
-World Model generates the next frame given the current frame and action control.
-
-|         |         |         |  
-| :-----: | :-----: | :-----: |  
-| ![Open drawer](rynnvla-002/assets/pickuptheblackbowlandplaceitontheplate_front.gif) | ![Pick up soup](rynnvla-002/assets/put_the_cream_cheese_box_in_the_basket_front.gif) | ![Pick up bowl](rynnvla-002/assets/putthebowlontopofthecabinet_front.gif) |
-| ![Open drawer](rynnvla-002/assets/pickuptheblackbowlandplaceitontheplate_wrist.gif) | ![Pick up soup](rynnvla-002/assets/put_the_cream_cheese_box_in_the_basket_wrist.gif) | ![Pick up bowl](rynnvla-002/assets/putthebowlontopofthecabinet_wrist.gif) |
-<br>
-
-
-## 🛠️ Requirements and Installation
 ```
-git clone https://github.com/alibaba-damo-academy/RynnVLA-002.git
-cd RynnVLA-002
-pip install -r requirements.txt
-pip install flash-attn --no-build-isolation
-pip install -e .
-git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git
-cd LIBERO
-pip install -e .
+human: What action should the robot take to {task}? <|state|> <|image|>×(his·V)
+gpt  : <|action|>×H  <|image|>×V        ← t+H 时刻的第三视角 + 腕部视角
 ```
 
-## :earth_americas: Model Zoo
-### VLA Model (256 * 256)
+| 损失 | 作用 | 默认权重 |
+|---|---|---|
+| `lis_fm` | flow-matching：$\lVert v_\theta(x_\tau,\tau)-(a-x_0)\rVert^2$，τ 取 logit-normal | 1.0 |
+| `lis_wm` | $1-\cos(\hat z_{t+H}, \mathrm{sg}[z_{t+H}])$，逐 latent token（JEPA 式 stop-grad 目标） | 1.0 |
+| `lis_wm_nce` | batch 内 InfoNCE：预测必须能认出自己的真实未来（防表征坍塌） | 0.1 |
+| `lis_var` | VICReg 方差项（防坍塌） | 0.1 |
+| `lis_lang_nce` | 多正例 InfoNCE：真实/想象的未来 latent ↔ 指令嵌入（同指令样本互为正例） | 0.1 |
+| `lis_prog` | 进度排序：$R(z_{t+H}, g) > R(z_t, g)$ | 0.05 |
+| `lis_rank` | 想象中的动作排序：专家动作块的想象未来 > 反事实动作块（加噪 / 时间反转 / batch 内错配）的想象未来 | 0.1 |
 
-| Model    |    HF Link        |    Continous Action SR (%)     | Discrete Action SR (%) |
-| :--------------------: | :------------------------------------------------------------: | :--------------------: | :--------------------: |
-| LIBERO-Spatial       | [Alibaba-DAMO-Academy/RynnVLA-002/VLA_model_256/libero_spatial](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/VLA_model_256/libero_spatial) | 99.0 | 94.2 |
-| LIBERO-Object       | [Alibaba-DAMO-Academy/RynnVLA-002/VLA_model_256/libero_object](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/VLA_model_256/libero_object) | 99.8 | 96.8 |
-| LIBERO-Goal | [Alibaba-DAMO-Academy/RynnVLA-002/VLA_model_256/libero_goal](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/VLA_model_256/libero_goal) | 96.4 | 94.6 |
-| LIBERO-Long | [Alibaba-DAMO-Academy/RynnVLA-002/VLA_model_256/libero_10](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/VLA_model_256/libero_10) | 94.4 | 87.6 |
-<br>
+所有损失通过模型返回的 `additional_loss_dict` 进入原版 trainer，**trainer 本身未修改**，日志里会直接看到上述各项。原版的 next-token CE（含 t+H 帧图像生成）和连续动作 L1 损失保持不变。
 
-### World Model (512 * 512)
+## 相比 RynnVLA-002 的改动
 
-| *Goal* | HF Link |FVD↓ | PSNR↑ | SSIM↑ | LPIPS↓ |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| World Model |[Alibaba-DAMO-Academy/RynnVLA-002/World_model_512/libero_goal](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/World_model_512/libero_goal) | 370.0 | 22.25 | 77.84 | 19.70 |
-| Action World Model | [Alibaba-DAMO-Academy/RynnVLA-002/Action_World_model_512/libero_goal](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/Action_World_model_512/libero_goal) | 336.8 | 22.13 | 78.13 | 19.43 |
+新增文件：
 
-| *Object* | HF Link | FVD↓ | PSNR↑ | SSIM↑ | LPIPS↓ |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| World Model | [Alibaba-DAMO-Academy/RynnVLA-002/World_model_512/libero_object](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/World_model_512/libero_object)| 1141.6 | 20.31 | 59.59 | 27.30 |
-| Action World Model | [Alibaba-DAMO-Academy/RynnVLA-002/Action_World_model_512/libero_object](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/Action_World_model_512/libero_object) | 877.2 | 22.18 | 65.03 | 22.60 |
+| 文件 | 内容 |
+|---|---|
+| `rynnvla-002/model/lis/tokens.py` | 解析 RynnVLA 的 token 序列（指令 / 状态 / 当前帧 / 动作块 / 未来帧的位置） |
+| `rynnvla-002/model/lis/modules.py` | Observation/Context/Language 编码器、Proposer、Latent World Model、Evaluator、损失、搜索 |
+| `rynnvla-002/model/modeling_lis_vla.py` | `ChameleonXLLMXForConditionalGeneration_LIS`、`LISVLAConfig`、`load_lis_model` |
+| `rynnvla-002/pretrain_solver_lis_vla.py` | 训练入口（继承原 solver，新增全部 `--lis_*` 参数） |
+| `rynnvla-002/eval_solver_libero_lis.py`, `libero_util/lis_utils.py` | LIBERO 评测（搜索 + 每步搜索日志 `lis_search_log.jsonl`） |
+| `rynnvla-002/data/lis_conv_generation.py`, `data/pretoken_lis_model.py` | LIS 训练数据生成与预分词 |
+| `rynnvla-002/exps_lis/*.sh`, `configs/lis/*.yaml` | 数据准备 / 训练 / 评测脚本 |
+| `rynnvla-002/tests/test_lis_vla.py` | CPU 冒烟测试（tiny Chameleon） |
 
-| *Spatial* | HF Link | FVD↓ | PSNR↑ | SSIM↑ | LPIPS↓ |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| World Model | [Alibaba-DAMO-Academy/RynnVLA-002/World_model_512/libero_spatial](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/World_model_512/libero_spatial)| 405.4 | 22.32 | 79.15 | 20.28 |
-| Action World Model | [Alibaba-DAMO-Academy/RynnVLA-002/Action_World_model_512/libero_spatial](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/Action_World_model_512/libero_spatial)| 373.1 | 23.88 | 82.41 | 16.33 |
+对原有行为的两处修正（均在子类中实现，原文件未改）：
 
-| *Long* | HF Link | FVD↓ | PSNR↑ | SSIM↑ | LPIPS↓ |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| World Model | [Alibaba-DAMO-Academy/RynnVLA-002/World_model_512/libero_10](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/World_model_512/libero_10)| 557.73 | 18.24 | 69.16 | 31.60 |
-| Action World Model | [Alibaba-DAMO-Academy/RynnVLA-002/Action_World_model_512/libero_10](https://huggingface.co/Alibaba-DAMO-Academy/RynnVLA-002/tree/main/Action_World_model_512/libero_10) | 427.86 | 19.36 | 72.19 | 27.78 |
+1. **Attention mask**：原 `generate_att_mask_3` 以“最后一张图”为参照决定动作块之间是否互相屏蔽；LIS 样本在动作块之后还有未来帧，会导致训练时动作块互相可见、与推理不一致。LIS 版本以“第一个动作块之前的最后一张图”为参照——对原有的 VLA 样本、世界模型样本、推理 prompt **结果完全相同**（有测试验证），只在 LIS 样本上生效。
+2. **Action head padding**：原 `ActionHead` 在 batch 内上下文长度不同时会让 action query 注意到零填充位置；LIS 版本对填充位置做了 mask。参数名与形状完全一致，**原版 checkpoint 可直接加载**，且 batch=1 推理时与原版数值一致（有测试验证）。
 
+## 使用
 
+环境与 RynnVLA-002 相同（`requirements.txt`，torch 2.2.0 / transformers 4.43.0），先按 [README_RynnVLA-002.md](README_RynnVLA-002.md) 完成 LIBERO 数据的 Step 1（重新生成图像/动作/状态），并下载 tokenizer 与 RynnVLA-002 checkpoint 到 `rynnvla-002/ckpts/`。
 
-## 🗝️ VLA Model Training on LIBERO
-We evaluate four tasks of the LIBERO benchmark, including [spatial, obejct, goal, 10]. Here we take LIEBRO goal and 256 resolution as an example.
-
-We offer two types of training pipelines:
-
-- `Pretokenize`: This pipeline preprocesses all the training data by tokenizing it into tokens before the training begins.
-- `NoPretokenize`: This pipeline performs tokenization dynamically during the training process.
-
-Both pipelines begin by filtering out no-operation actions like [OpenVLA](https://github.com/openvla/openvla).
+### 1. 准备 LIS 数据
 
 ```bash
-cd rynnvla-002/libero_util
-python regenerate_libero_dataset_filter_no_op.py \
-    --libero_task_suite libero_goal \
-    --libero_raw_data_dir ../processed_data/Libero/libero_goal \
-    --libero_target_dir ../processed_data/libero_goal_no_noops_t_256 \
-    --image_resolution 256
+cd rynnvla-002/exps_lis
+bash prepare_data.sh goal 5        # goal/object: H=5；spatial/10: H=10
 ```
 
-After filtering, you can choose between the `Pretokenize` or `NoPretokenize` training pipeline. The `Pretokenize` pipeline offers faster training speeds, while the `NoPretokenize` option eliminates the need for preprocessing.
+会生成 LIS 样本并预分词；若原版世界模型数据和 VLA 数据的 token 已存在，会一并混入 `processed_data/concate_tokens/libero_goal_..._lis_awm.json`。
 
-#### Step 0: Download the Chameleon weights
-Download the Chameleon [tokenizer](https://huggingface.co/Alibaba-DAMO-Academy/WorldVLA/tree/main/chameleon/tokenizer), [base-model](https://huggingface.co/Alibaba-DAMO-Academy/WorldVLA/tree/main/base_model) and [starting point](https://huggingface.co/Alibaba-DAMO-Academy/WorldVLA/tree/main/chameleon/starting_point) weights, put them under the `rynnvla-002/ckpts/chameleon/tokenizer`, `rynnvla-002/ckpts/chameleon/base_model`, and `rynnvla-002/ckpts/starting_point`.
+### 2. 训练
 
-
-### Pipeline1: Pretokenize
-
-#### Step 1: Libero Data Preparation
-
-After filtering out no-operation actions, save all images and actions.
 ```bash
-python regenerate_libero_dataset_save_img_action_state_wrist.py \
-    --libero_task_suite libero_goal \
-    --image_resolution 256 \
-    --raw_data_dir ../processed_data/libero_goal_no_noops_t_256 \
-    --save_dir ../processed_data/libero_goal_image_state_action_t_256
-``` 
-Next, generate the conversations data for the Chameleon model. The VLA model conversations are in the following format:
-```json
-{
-  "conversations": [
-    {
-      "from": "human",
-      "value": "What action should the robot take to open the middle drawer of the cabinet?<|state|><|image|><|image|><|image|><|image|>"
-    },
-    {
-      "from": "gpt",
-      "value": "<|action|><|action|><|action|><|action|><|action|>"
-    }
-  ],
-  "image": [
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_third_view/image_0.png",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_wrist/image_0.png",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_third_view/image_1.png",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_wrist/image_1.png"
-  ],
-  "action": [
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/action/action_1.npy",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/action/action_2.npy",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/action/action_3.npy",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/action/action_4.npy",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/action/action_5.npy"
-  ],
-  "state": [
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/eef_gripper_state/eef_gripper_state_1.npy"
-  ]
-}
+# 冻结 RynnVLA-002，只训练 System 2（最省算力，推荐先跑）
+bash train_lis.sh goal 5 lis_only ../ckpts/RynnVLA-002/VLA_model_256/libero_goal
+# 同时微调连续动作头
+bash train_lis.sh goal 5 lis_and_head ../ckpts/RynnVLA-002/VLA_model_256/libero_goal
+# 全量微调（与 RynnVLA-002 训练设置一致）
+bash train_lis.sh goal 5 all ../ckpts/RynnVLA-002/VLA_model_256/libero_goal
 ```
-The world model conversations are in the following format:
-```json
-{
-  "conversations": [
-    {
-        "from": "human",
-        "value": "Generate the next image based on the provided sequence of historical images and corresponding actions.<|image|><|image|><|action|>"
-    },
-    {
-        "from": "gpt",
-        "value": "<|image|><|image|>"
-    }
-  ],
-  "image": [
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_third_view/image_0.png",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_wrist/image_0.png",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_third_view/image_1.png",
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/imgs_wrist/image_1.png"
-  ],
-  "action": [
-    "../processed_data/libero_goal_image_state_action_t_256/open_the_middle_drawer_of_the_cabinet/trj_0/action/action_0.npy"
-  ]
-},
-```
-To validate the world model performance, we split all the libero dataset into train/val_ind/val_ood json files.
+
+从不含 LIS 权重的 checkpoint 启动时，`load_lis_model` 会自动初始化 `lis.*` 参数。`--lis_detach_backbone true`（默认）表示 LIS 损失不回传到 backbone。
+
+### 3. 评测
+
 ```bash
-cd rynnvla-002/data
-python action_state_model_conv_generation.py \
-    --base_dir ../processed_data/libero_goal_image_state_action_t_256 \
-    --his 2 \
-    --len_action 5 \
-    --task_name goal \
-    --resolution 256 \
-    --with_state \
-    --img_names imgs_third_view imgs_wrist \
-    --output_dir ../processed_data/convs
-python world_model_bi_views_conv_generation.py \
-    --base_dir ../processed_data/libero_goal_image_state_action_t_256 \
-    --his 1 \
-    --task_name goal \
-    --resolution 256 \
-    --output_dir ../processed_data/convs
+bash eval_lis.sh goal 5 ../outputs/libero_goal/<exp>/epoch9            # N=16 搜索
+bash eval_lis.sh goal 5 ../outputs/libero_goal/<exp>/epoch9 32 2        # N=32 + 2 轮 CEM
+bash eval_lis.sh goal 5 ../outputs/libero_goal/<exp>/epoch9 16 0 0      # 关闭搜索 = System 1 消融
 ```
-Finally, tokenize all the conversations into tokens and save them.
+
+### Python 接口
+
+```python
+from model import load_lis_model
+model = load_lis_model(ckpt, torch_dtype=torch.bfloat16).cuda().eval()
+chunk = model.generate_lis_action(input_ids, generation_config, num_candidates=16, cem_iters=0)  # (H, 7), 归一化空间
+model.last_search_info   # best_score / best_semantic / best_cost / score_std / prior_score ...
+```
+
+## 规模与开销
+
+- System 2 参数量：**约 50.1M**（7B 维度下：obs 9.0M / ctx 5.3M / lang 5.3M / proposer 13.7M / world model 12.9M / evaluator 3.9M），约为 backbone 的 0.7%。
+- 搜索 **不需要额外的 backbone 前向**，也不解码像素：所有候选在 512 维 latent 空间里批量前向。
+- 参考：在 2 线程 CPU、fp32 下单次规划 N=16 约 0.43 s，N=32 约 0.74 s，N=16+2 轮 CEM 约 0.63 s；GPU 上的延迟尚未实测。
+
+## 测试
+
 ```bash
-cd rynnvla-002/data
-python pretoken_state_action_model.py --task goal --resolution 256 --with_state --img_names imgs_third_view imgs_wrist --his 2 --len_action 5 --tokenizer_path ../ckpts/models--Alpha-VLLM--Lumina-mGPT-7B-768/snapshots/9624463a82ea5ce814af9b561dcd08a31082c3af
-python pretoken_world_model.py --task goal --resolution 256 --img_name imgs_third_view imgs_wrist --tokenizer_path ../ckpts/models--Alpha-VLLM--Lumina-mGPT-7B-768/snapshots/9624463a82ea5ce814af9b561dcd08a31082c3af
-bash concate_record_libero.sh
-python concate_action_world_model_data_libero.py --source_dir_patterns libero_goal_his_2_{}_third_view_wrist_w_state_5_256 libero_goal_his_1_{}_third_view_wrist_a2i_256 --all_patterns libero_goal_his_2_third_view_wrist_w_state_5_256_abiw
+cd rynnvla-002
+python -m pytest -q tests/test_lis_vla.py
 ```
 
-#### Step 2: Prepare data configs
-Set the correct data path in the config files in `rynnvla-002/configs/libero_goal/his_2_third_view_wrist_w_state_5_256_pretokenize.yaml`.
+覆盖：序列解析；attention mask 与原版一致性及 LIS 样本上的修正；训练前向/反向（所有 LIS 模块均有梯度）；60 步内 `lis_fm` / `lis_wm` / `lis_lang_nce` 下降；端到端 `generate_lis_action`（含 CEM 与关闭搜索）；动作头与原版 `ActionHead` 的 state-dict 兼容与数值一致；从不含 LIS 权重的 checkpoint 加载。
 
-#### Step 3: Start training
-Now you can start training with your training scripts:
-```bash
-# Libero goal, 256 resolution
-cd rynnvla-002/exps_pretokenize
-bash libero_goal_his_2_third_view_wrist_w_state_5_256_abiw.sh
-```
+## 当前状态与建议的消融
 
+代码已在 tiny 配置上端到端跑通，**尚未在 LIBERO 上用 7B 模型训练或评测，目前没有任何成功率结果**。建议的实验：
 
+1. System 1（`SEARCH=0`）vs. LIS（同一 checkpoint），N ∈ {4, 8, 16, 32}；
+2. Evaluator 去掉 `lis_rank` / `lis_prog` / `lis_lang_nce` 各一项；
+3. 隐空间搜索 vs. 像素空间（用 RynnVLA-002 自带的世界模型生成图像再打分）的成功率与延迟对比；
+4. `lis_only` vs. `all` 训练范围。
 
+注意：Evaluator 只从专家演示中学习（专家动作块 vs. 反事实动作块），它学到的是“像专家那样推进任务”的偏好，在演示分布之外的可靠性需要实验验证；`last_search_info["score_std"]` 很小时说明候选之间区分度不足。
 
-### Pipeline2: NoPretokenize
-#### Step 1: Prepare data configs
-Set the correct data path in the config files in `rynnvla-002/configs/libero_goal/his_2_third_view_wrist_w_state_5_256_nopretokenize.yaml`.
+## 致谢与许可
 
-#### Step 2: Start training
-```bash
-# Libero goal, 256 resolution
-cd rynnvla-002/exps_nopretokenize
-bash libero_goal_his_2_third_view_wrist_w_state_5_256_abiw.sh
-```
-
-
-## ✅ VLA Model Evaluation on LIBERO
-### Step 1: Prepare evaluation scripts
-Set the `checkpoint_path` in the bash files in `rynnvla-002/evals_libero/` to the model path. You can download our trained in Model Zoo or train yourself.
-
-### Step 2: Start evaluation
-```bash
-# Libero goal, 256 resolution, continous
-cd rynnvla-002/evals_libero
-bash eval_libero_goal_his_2_third_view_wrist_w_state_5_256_abiw_continous.sh
-# Libero goal, 256 resolution, discrete
-cd rynnvla-002/evals_libero
-bash eval_libero_goal_his_2_third_view_wrist_w_state_5_256_abiw_discrete.sh
-```
-
-
-## 🗝️ World Model Training on LIBERO
-For world model training, we set image_resolution to 512.
-### Pipeline1: Pretokenize
-#### Step 1: Libero Data Preparation
-
-Preprocess the dataset as described above, ensuring the `image_resolution` is set to 512.
-Finally, run the following command to concatenate tokens:
-```bash
-python concate_action_world_model_data_libero.py --source_dir_patterns libero_goal_his_1_train_third_view_wrist_a2i_512 --all_patterns libero_goal_his_1_train_third_view_wrist_a2i_512
-```
-
-
-#### Step 2: Prepare data configs
-Set the correct data path in the config files in `rynnvla-002/configs/libero_goal/his_1_third_view_wrist_512_only_worldmodel_pretokenize.yaml`.
-
-#### Step 3: Start Training
-```
-cd rynnvla-002/exps_libero_world_model
-bash libero_goal_his_1_third_view_wrist_512_pretokenize.sh
-```
-
-### Pipeline2: NoPretokenize
-First, set the correct data path in the config files in `rynnvla-002/configs/libero_goal/his_1_train_third_view_wrist_512_only_worldmodel_nopretokenize.yaml`.
-
-Then, start training:
-```
-cd rynnvla-002/exps_libero_world_model
-bash libero_goal_his_1_third_view_wrist_512_nopretokenize.sh
-```
-
-## ✅ World Model Evaluation on LIBERO
-We evaluate the world model performance on the valiation set, which is stored in `rynnvla-002/exps_libero_world_model/goal_val_ind_trajectory_paths.json`. If the path is not the same as yours, use `rynnvla-002/exps_libero_world_model/extract_world_model_val_ind_trj.py` to generate one. Then run the evaluation:
-```
-cd rynnvla-002/exps_libero_world_model
-bash eval_world_model_goal.sh
-```
-Then calculate the generation performance of world model and action world model:
-```
-python calculate_world_model_performance.py \
-    --folder_world_model "" \
-    --folder_action_world_model ""
-```
-
-## 🗝️ Training on LeRobot
-
-#### Step 1: Lerobot to HDF5
-
-We use HDF5 format data. Therefore, if you collect data in Lerobot format, you can follow the following command to process it into HDF5 format:
-```
-cd rynnvla-002/data_lerobot
-python lerobot_to_hdf5.py \
-    --lerobot_input_dir {lerobot_input_dir}
-    --hdf5_output_dir {hdf5_output_dir}
-```
-
-#### Step 2: HDF5 to raw data
-Put all HDF5 files in a json file, see `rynnvla-002/data_lerobot/modified_data_final.json` as an example. Extract the raw front camera data, wrist camera data, state data, and action data and save them all:
-```
-cd rynnvla-002/data_lerobot
-python extract_all_data.py \
-    --json_path {json_path}
-    --output_dir {raw_data_output_dir}
-    --num_processes {num_processes to accelerate}
-```
-
-#### Step 3: Generate conversation files
-Generate the VLA model conversation file and world model conversation file:
-```
-cd rynnvla-002/lerobot_util
-python action_model_conv_generation_w_2_abs_state_all_data.py --input_dir {raw_data_output_dir} --his 1 --len_action 20 --task_name vla_data --output_dir {conv_output_dir}
-python world_model_conv_generation_w_2_abs_front_all_data.py --input_dir {raw_data_output_dir} --his 1 --task_name world_model_data --output_dir {conv_output_dir}
-python world_model_conv_generation_w_2_abs_wrist_all_data.py --input_dir {raw_data_output_dir} --his 1 --task_name world_model_data --output_dir {conv_output_dir}
-```
-
-#### Step 4: Tokenize raw data based on conversation files
-First, calculate the min and max value of action data and state data:
-```
-cd rynnvla-002/data_lerobot
-python calculate_min_max_all_data_state.py {raw_data_output_dir}
-python calculate_min_max_all_data_action.py {raw_data_output_dir}
-```
-Put the results at the beginning of `rynnvla-002/data_lerobot/item_processor.py`  
-Then, tokenize all training data and concate them:
-```
-python pretoken_lerobot_state.py \
-    --input_file {conv_output_dir}/libero_vla_data_his_1_train_img_state_abs_ck_1_256.json \
-    --output_dir {raw_data_output_dir}/tokens/vla_data \
-    --resolution 256 \
-    --tokenizer_path ../ckpts/models--Alpha-VLLM--Lumina-mGPT-7B-768/snapshots/9624463a82ea5ce814af9b561dcd08a31082c3af
-python -u concate_record.py --sub_record_dir {raw_data_output_dir}/tokens/vla_data --save_path {raw_data_output_dir}/tokens/vla_data/record.json
-python pretoken_lerobot.py \
-    --input_file {conv_output_dir}/libero_world_model_data_his_1_train_a2i_512_abs_front_all_data.json \
-    --output_dir {raw_data_output_dir}/tokens/world_model_data_front \
-    --resolution 256 \
-    --tokenizer_path ../ckpts/models--Alpha-VLLM--Lumina-mGPT-7B-768/snapshots/9624463a82ea5ce814af9b561dcd08a31082c3af
-python -u concate_record.py --sub_record_dir {raw_data_output_dir}/tokens/world_model_data_front --save_path {raw_data_output_dir}/tokens/world_model_data_front/record.json
-python pretoken_lerobot.py \
-    --input_file {conv_output_dir}/libero_world_model_data_his_1_train_a2i_512_abs_wrist_all_data.json \
-    --output_dir {raw_data_output_dir}/tokens/world_model_data_wrist \
-    --resolution 256 \
-    --tokenizer_path ../ckpts/models--Alpha-VLLM--Lumina-mGPT-7B-768/snapshots/9624463a82ea5ce814af9b561dcd08a31082c3af
-python -u concate_record.py --sub_record_dir {raw_data_output_dir}/tokens/world_model_data_wrist --save_path {raw_data_output_dir}/tokens/world_model_data_wrist/record.json
-python concate_multi_record.py \
-    --input_files {raw_data_output_dir}/tokens/vla_data/record.json {raw_data_output_dir}/tokens/world_model_data_front/record.json {raw_data_output_dir}/tokens/world_model_data_wrist/record.json \
-    --output_file {raw_data_output_dir}/concate_tokens/lerobot_all.json
-```
-
-#### Step 5: Prepare data configs
-Set the correct data path in the config files in `rynnvla-002/configs/lerobot/his_1_third_view_wrist_w_state_20_256_pretokenize.yaml`.
-
-#### Step 6: Start training
-Now you can start training with your training scripts:
-```bash
-cd rynnvla-002/exps_pretokenize
-bash libero_goal_his_2_third_view_wrist_w_state_5_256_abiw.sh
-```
-
-## ✅ Inference using LeRobot
-We provide the action generation function in `rynnvla-002/eval_solver_lerobot_action_head_state.py` and initilization script in `rynnvla-002/evals_lerobot/eval_7B_lerobot_action_head.sh`.
-
-
-## License <a name="license"></a>
-
-All assets and code are under the [Apache 2.0 license](./LICENSE) unless specified otherwise.
-
-## Citation <a name="citation"></a>
-If you find the project helpful for your research, please consider citing our paper:
-```bibtex
-@article{cen2025rynnvla,
-  title={RynnVLA-002: A Unified Vision-Language-Action and World Model},
-  author={Cen, Jun and Huang, Siteng and Yuan, Yuqian and Li, Kehan and Yuan, Hangjie and Yu, Chaohui and Jiang, Yuming and Guo, Jiayan and Li, Xin and Luo, Hao and Wang, Fan and Wang, Fan and Zhao, Deli},
-  journal={arXiv preprint arXiv:2511.17502},
-  year={2025}
-}
-
-@article{cen2025WorldVLA,
-  title={WorldVLA: Towards Autoregressive Action World Model},
-  author={Cen, Jun and Yu, Chaohui and Yuan, Hangjie and Jiang, Yuming and Huang, Siteng and Guo, Jiayan and Li, Xin and Song, Yibing and Luo, Hao and Wang, Fan and Zhao, Deli and Chen, Hao},
-  journal={arXiv preprint arXiv:},
-  year={2025}
-}
-```
-
-<details open><summary>💡 Other featured projects from our RynnBot family ✨. </summary><p>
-    
-<!--  may -->
-> [**RynnVLA-001: A Vision-Language-Action Model Boosted by Generative Priors**](https://github.com/alibaba-damo-academy/RynnVLA-001) <br>
-> Yuming Jiang, Siteng Huang, Shengke Xue, Yaxi Zhao, Jun Cen, Sicong Leng, Jiayan Guo, Kexiang Wang, Kehan Li, Mingxiu Chen, Fan Wang, Deli Zhao, Xin Li <br>
-[![github](https://img.shields.io/badge/-Github-black?logo=github)](https://github.com/alibaba-damo-academy/RynnVLA-001)  [![github](https://img.shields.io/github/stars/alibaba-damo-academy/RynnVLA-001.svg?style=social)](https://github.com/alibaba-damo-academy/RynnVLA-001)  [![arXiv](https://img.shields.io/badge/Arxiv-2509.15212-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2509.15212)<be>
-
-
-> [**RynnRCP: Open Robotics Context Protocol and RobotMotion**](https://github.com/alibaba-damo-academy/RynnRCP) <br>
-> RynnBot Team <br>
-[![github](https://img.shields.io/badge/-Github-black?logo=github)](https://github.com/alibaba-damo-academy/RynnRCP)  [![github](https://img.shields.io/github/stars/alibaba-damo-academy/RynnRCP.svg?style=social)](https://github.com/alibaba-damo-academy/RynnRCP)  <br>
-
-> [**RynnMotion: All-In-One Tookit for Fast Robot Prototyping and Heterogeneous Teleoperation**](https://github.com/alibaba-damo-academy/RynnMotion) <br>
-> RynnBot Team <br>
-[![github](https://img.shields.io/badge/-Github-black?logo=github)](https://github.com/alibaba-damo-academy/RynnMotion)  [![github](https://img.shields.io/github/stars/alibaba-damo-academy/RynnMotion.svg?style=social)](https://github.com/alibaba-damo-academy/RynnMotion)  <br>
-
-
-
-> [**RynnEC: Bringing MLLMs into Embodied World**](https://github.com/alibaba-damo-academy/RynnEC) <br>
-> Ronghao Dang*, Yuqian Yuan*, Yunxuan Mao*, Kehan Li*, Jiangpin Liu, Zhikai Wang, Fan Wang, Deli Zhao, Xin Li <br>
-[![github](https://img.shields.io/badge/-Github-black?logo=github)](https://github.com/alibaba-damo-academy/RynnEC)  [![github](https://img.shields.io/github/stars/alibaba-damo-academy/RynnEC.svg?style=social)](https://github.com/alibaba-damo-academy/RynnEC) [![arXiv](https://img.shields.io/badge/Arxiv-2508.14160-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2508.14160) <be> 
-
-
-</p></details>
-
-## Acknowledgment <a name="acknowledgment"></a>
-This project builds upon [Lumina-mGPT](https://github.com/Alpha-VLLM/Lumina-mGPT), [Chemeleon](https://github.com/facebookresearch/chameleon), and [OpenVLA](http://github.com/openvla/openvla). We thank these teams for their open-source contributions.
+基于 [RynnVLA-002](https://github.com/alibaba-damo-academy/RynnVLA-002)（Apache-2.0），原 README 保留为 [README_RynnVLA-002.md](README_RynnVLA-002.md)。本仓库同样以 Apache-2.0 发布，见 `LICENSE` 与 `NOTICE`。

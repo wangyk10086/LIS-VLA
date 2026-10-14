@@ -22,4 +22,5 @@ rynnvla-002/processed_data/
 rynnvla-002/LIBERO-master/
 rynnvla-002/eval_outputs/
 rynnvla-002/ckpts/
-rynnvla-002/assets/.nfs*
+rynnvla-002/assets/.nfs*rynnvla-002/eval_outputs/
+.pytest_cache/
