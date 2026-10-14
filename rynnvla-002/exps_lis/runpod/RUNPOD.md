@@ -23,6 +23,8 @@ tmux new -d -s run "bash /workspace/LIS-VLA/rynnvla-002/exps_lis/runpod/phase0_s
 ```
 with `<SHARD>` = 0 … 5. Progress: `tail -f /workspace/results/phase0/logs/*_shard<SHARD>.log`. A pod that was interrupted can simply run the same command again; finished episodes are skipped.
 
+**Single-pod alternative** (when only one 48 GB GPU is available): `phase0_single_pod.sh` runs two shard streams on the same GPU (~16 GB each), then writes `summary.txt` and stops the pod itself. Measured on an A40: ~30 s per episode per stream, ~8 h for all six shards.
+
 ## 4. Results
 ```bash
 python /workspace/LIS-VLA/rynnvla-002/tools/summarize_eval.py /workspace/results/phase0 --json /workspace/results/phase0/summary.json
