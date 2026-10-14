@@ -1,0 +1,10 @@
+Measured for the System-2 heads alone at 7B-backbone dimensions (50.1M parameters) on CPU (x86\_64), 2 threads, fp32 with PyTorch 2.14.1; the backbone pass is shared with System~1 and excluded. Median of 5 runs, in milliseconds per control step:
+\begin{center}\small
+\begin{tabular}{lccccccc}
+\toprule
+$N$ & 1 & 4 & 8 & 16 & 32 & 64 & 16+CEM2 \\
+ms & 108 & 162 & 206 & 381 & 626 & 1232 & 506 \\
+\bottomrule
+\end{tabular}
+\end{center}
+These CPU numbers only bound the cost of search from above; GPU latency, which is what matters for deployment, has not been measured.

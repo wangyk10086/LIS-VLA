@@ -24,3 +24,10 @@ rynnvla-002/eval_outputs/
 rynnvla-002/ckpts/
 rynnvla-002/assets/.nfs*rynnvla-002/eval_outputs/
 .pytest_cache/
+paper/*.aux
+paper/*.log
+paper/*.blg
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
+paper/build.log
