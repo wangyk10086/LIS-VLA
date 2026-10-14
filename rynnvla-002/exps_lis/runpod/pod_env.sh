@@ -9,12 +9,22 @@ if ! ldconfig -p | grep -q libMagickWand; then
   apt-get update -qq && apt-get install -y -qq libegl1 libgl1 libglib2.0-0 libmagickwand-dev libexpat1 libfontconfig1 unzip >/dev/null
 fi
 # LIBERO-plus assets live on local disk (see setup_volume.sh); unpack once per pod (~2 min)
-if [ "$KIND" != vanilla ] && [ ! -d /root/lpassets/new_objects ] && [ -f $W/hf/libero_plus/assets.zip ]; then
+if [ "$KIND" != vanilla ] && [ ! -f /root/lpassets/.complete ] && [ -f $W/hf/libero_plus/assets.zip ]; then
   echo "unpacking LIBERO-plus assets to local disk..."
-  rm -rf /root/lpassets_tmp && mkdir -p /root/lpassets_tmp
+  rm -rf /root/lpassets /root/lpassets_tmp && mkdir -p /root/lpassets_tmp
+  # the archive root is nested ~11 levels deep (…/LIBERO-plus-0/assets/…); extract, then locate it
   unzip -q -o $W/hf/libero_plus/assets.zip -d /root/lpassets_tmp
-  A=$(dirname "$(find /root/lpassets_tmp -maxdepth 4 -type d -name new_objects | head -1)")
-  rm -rf /root/lpassets && mv "$A" /root/lpassets && rm -rf /root/lpassets_tmp
+  NEWOBJ=$(find /root/lpassets_tmp -type d -path '*/assets/new_objects' -print -quit)
+  if [ -z "$NEWOBJ" ]; then
+    echo "ERROR: assets/new_objects not found in assets.zip - not touching anything else"
+    return 1 2>/dev/null || exit 1
+  fi
+  mv "$(dirname "$NEWOBJ")" /root/lpassets && rm -rf /root/lpassets_tmp   # same local filesystem: a rename
+  if [ ! -d /root/lpassets/scenes ]; then
+    echo "ERROR: unpacked assets look incomplete (no scenes/)"; return 1 2>/dev/null || exit 1
+  fi
+  touch /root/lpassets/.complete
+  echo "assets ready: $(ls /root/lpassets | tr '\n' ' ')"
 fi
 source $W/venv/bin/activate
 export HF_HOME=$W/hf
