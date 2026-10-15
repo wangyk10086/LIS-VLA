@@ -213,3 +213,64 @@ def test_lis_weights_roundtrip(tmp_path):
     for k, v in base.state_dict().items():
         if not k.startswith("lis."):
             assert torch.equal(sd[k], v), k
+
+
+def test_value_head_scoring_and_training(model, tmp_path):
+    """outcome-trained scorer: plugs into search, gates on P(success), trains from rollout files"""
+    import subprocess
+
+    import numpy as np
+    from safetensors.torch import save_file
+    from transformers import GenerationConfig
+
+    from model.lis.value import ChunkValue
+
+    cfg = model.config
+    g = torch.Generator().manual_seed(7)
+    ids, _ = make_sample(1, g, with_future=False)
+    prompt = torch.tensor([ids[: ids.index(10004) + 1]])
+    gen = GenerationConfig(max_new_tokens=1, do_sample=False, eos_token_id=[8710])
+    model.eval()
+    for mode in ("imag", "direct"):
+        model.lis.value_head = ChunkValue(mode, d=cfg.lis_dim, num_latents=cfg.lis_num_latents,
+                                          num_ctx=cfg.lis_ctx_tokens, horizon=H, action_dim=A, width=16).eval()
+        try:
+            model.generate_lis_action(prompt, gen, return_all=True)
+            info = model.last_search_info
+            assert info["gap_p"] is not None and -1 <= info["gap_p"] <= 1
+            assert info["z_t"].shape[-2:] == (cfg.lis_num_latents, cfg.lis_dim)
+            cfg.lis_override_margin_p = 2.0  # unreachable: always keep System 1
+            model.generate_lis_action(prompt, gen)
+            assert model.last_search_info["gated"]
+        finally:
+            cfg.lis_override_margin_p = 0.0
+            del model.lis.value_head
+
+    # synthetic rollouts with the real feature shapes -> train_value.py end to end
+    model.save_pretrained(tmp_path / "base")
+    (tmp_path / "lis").mkdir()
+    save_file({k: v.contiguous() for k, v in model.state_dict().items() if k.startswith("lis.")},
+              str(tmp_path / "lis" / "model.safetensors"))
+    roll = tmp_path / "roll"
+    roll.mkdir()
+    rng = np.random.RandomState(0)
+    for e in range(24):
+        q = 6
+        np.savez_compressed(roll / f"ep{e:05d}.npz",
+                            z_t=rng.randn(q, cfg.lis_num_latents, cfg.lis_dim).astype(np.float16),
+                            ctx=rng.randn(q, cfg.lis_ctx_tokens, cfg.lis_dim).astype(np.float16),
+                            goal=rng.randn(q, cfg.lis_dim).astype(np.float16),
+                            candidates=rng.uniform(-1, 1, (q, 4, H, A)).astype(np.float16),
+                            executed=rng.randint(0, 4, q), t=np.arange(10, 10 + 5 * q, 5),
+                            success=np.array(e % 2 == 0), end_step=np.array(60), task_index=np.array(e % 3),
+                            sigma=np.array(0.1), joint_noise=np.zeros(7, np.float32), error=np.array(""))
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for mode in ("imag", "direct"):
+        out = tmp_path / f"v_{mode}.pt"
+        r = subprocess.run([sys.executable, os.path.join(root, "tools", "train_value.py"), "--rollouts", str(roll),
+                            "--mode", mode, "--ckpt", str(tmp_path / "base"), "--lis_weights", str(tmp_path / "lis"),
+                            "--out", str(out), "--epochs", "2", "--device", "cpu"],
+                           capture_output=True, text=True, cwd=root)
+        assert r.returncode == 0, r.stderr[-2000:]
+        head = ChunkValue.load(str(out))
+        assert head.mode == mode

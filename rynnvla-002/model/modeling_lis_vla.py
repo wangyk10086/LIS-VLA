@@ -42,7 +42,8 @@ LIS_DEFAULTS = dict(
     lis_num_candidates=16,       # N
     lis_cem_iters=0,             # optional CEM refinement rounds
     lis_cem_elites=4,
-    lis_override_z=0.0,          # >0: replace System 1 only if the best candidate wins by this many score SDs
+    lis_override_z=0.0,
+    lis_override_margin_p=0.0,   # with an outcome-trained scorer: switch only if P(success) gains this much          # >0: replace System 1 only if the best candidate wins by this many score SDs
     lis_include_prior=True,      # candidate #0 = deterministic System-1 chunk
     lis_smooth_weight=0.05,
     lis_smooth_dims=6,           # smoothness is applied to arm dims, not the gripper
@@ -281,6 +282,8 @@ class ChameleonXLLMXForConditionalGeneration_LIS(ChameleonXLLMXForConditionalGen
         best, info = self.lis.search(ctx, goal, feats, z_t, prior_actions=prior, num_candidates=num_candidates,
                                      cem_iters=cem_iters, return_all=return_all)
         info["search"] = True
+        if return_all:  # features for rollout collection / offline scorer training
+            info.update(ctx=ctx, goal=goal, z_t=z_t, prior=prior)
         self.last_search_info = info
         return best.to(prior.dtype)
 

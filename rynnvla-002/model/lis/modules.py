@@ -326,6 +326,14 @@ class LISHeads(nn.Module):
         cfg = self.cfg
         n = chunks.shape[0]
         z_hat = self.world_model(z_t.expand(n, -1, -1), ctx_tokens.expand(n, -1, -1), chunks)
+        vh = getattr(self, "value_head", None)  # outcome-trained scorer attached at evaluation time
+        if vh is not None:
+            if vh.mode == "imag":
+                logit = vh(goal.expand(n, -1), z_hat)
+            else:
+                logit = vh(goal.expand(n, -1), z_t.expand(n, -1, -1), ctx_tokens.expand(n, -1, -1), chunks)
+            logit = logit.float()
+            return logit, logit, torch.zeros_like(logit)
         r = self.evaluator(z_hat, goal.expand(n, -1))
         cost = action_cost(chunks, prior_actions, cfg.lis_smooth_dims, cfg.lis_smooth_weight, cfg.lis_prior_weight)
         return r.float() - cost, r.float(), cost
@@ -369,16 +377,24 @@ class LISHeads(nn.Module):
         best = int(total.argmax())
         gap_z = (float(total[best]) - prior_total) / spread if has_prior else None
         override_z = float(getattr(cfg, "lis_override_z", 0.0) or 0.0)
+        margin_p = float(getattr(cfg, "lis_override_margin_p", 0.0) or 0.0)
+        gap_p = None
+        if has_prior and getattr(self, "value_head", None) is not None:  # scores are success logits
+            sig = lambda x: 1.0 / (1.0 + math.exp(-max(min(x, 50.0), -50.0)))
+            gap_p = sig(float(total[best])) - sig(prior_total)
         gated = False
         if has_prior and override_z > 0 and gap_z < override_z:
             gated = True
+        if has_prior and margin_p > 0 and gap_p is not None and gap_p < margin_p:
+            gated = True
+        if gated:
             chosen = prior_actions.to(cands.dtype)
         else:
             chosen = cands[best]
         is_prior = gated or (has_prior and iters == 0 and best == 0)
         info = {"best_index": 0 if is_prior else best, "best_score": float(total[best]), "best_semantic": float(sem[best]),
                 "best_cost": float(cost[best]), "score_mean": float(total.mean()), "score_std": float(total.std()),
-                "prior_score": prior_total, "gap_z": gap_z, "gated": gated}
+                "prior_score": prior_total, "gap_z": gap_z, "gap_p": gap_p, "gated": gated}
         if return_all:
             info.update(candidates=cands, scores=total, semantic=sem, cost=cost)
         return chosen, info

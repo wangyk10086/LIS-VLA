@@ -122,6 +122,8 @@ def main():
     ap.add_argument("--override_z", type=float, default=None, help="System-2 override margin in score SDs (0 = argmax)")
     ap.add_argument("--prior_weight", type=float, default=None, help="penalty for deviating from the System-1 chunk")
     ap.add_argument("--noise_scale", type=float, default=None, help="proposer noise scale (<1: candidates closer to System 1)")
+    ap.add_argument("--value_head", default=None, help="outcome-trained scorer (tools/train_value.py) replacing the evaluator")
+    ap.add_argument("--margin_p", type=float, default=None, help="with --value_head: switch only if P(success) gains this much")
     ap.add_argument("--save_video", type=int, default=0)
     ap.add_argument("--device", default="cuda:0")
     args = ap.parse_args()
@@ -158,8 +160,11 @@ def main():
     model = load_lis_model(args.ckpt, lis_weights=args.lis_weights, action_dim=7, time_horizon=args.time_horizon, max_position_embeddings=8192,
                            mask_image_logits=False, torch_dtype=torch.bfloat16,
                            attn_implementation=attn).to(args.device).eval()
+    if args.value_head:
+        from model.lis.value import ChunkValue
+        model.lis.value_head = ChunkValue.load(args.value_head).to(args.device)
     for name, key in (("override_z", "lis_override_z"), ("prior_weight", "lis_prior_weight"),
-                      ("noise_scale", "lis_noise_scale")):
+                      ("noise_scale", "lis_noise_scale"), ("margin_p", "lis_override_margin_p")):
         if getattr(args, name) is not None:  # search settings are read from the config at query time
             setattr(model.config, key, getattr(args, name))
             setattr(model.lis.cfg, key, getattr(args, name))
@@ -221,7 +226,8 @@ def main():
                "queries": n_queries, "overrides": overrides,
                "query_latency_mean": round(float(np.mean(q_lat)), 4) if q_lat else None, "error": err,
                "search": args.search, "num_candidates": args.num_candidates, "override_z": args.override_z,
-               "prior_weight": args.prior_weight, "noise_scale": args.noise_scale, "gap_z": gaps}
+               "prior_weight": args.prior_weight, "noise_scale": args.noise_scale, "gap_z": gaps,
+               "value_head": args.value_head, "margin_p": args.margin_p}
         with open(res_path, "a") as f:
             f.write(json.dumps(rec) + "\n")
         print(f"[{ep['category']}] {ep['task_name'][:60]} success={rec['success']} t={t} {rec['seconds']}s", flush=True)
