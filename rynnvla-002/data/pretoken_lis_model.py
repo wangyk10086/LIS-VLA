@@ -14,6 +14,7 @@ from multiprocessing import Process
 
 def run(rank, world, gpus, resolution, in_file, out_dir, with_state, tokenizer):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(rank % gpus)
+    os.environ.setdefault("OMP_NUM_THREADS", "2")
     script = "pre_tokenize_action_state_local.py" if with_state else "pre_tokenize_action_local.py"
     os.system(f"python -u {script} --splits={world} --rank={rank} --in_filename {in_file} "
               f"--out_dir {out_dir} --tokenizer {tokenizer} --target_size {resolution}")

@@ -7,12 +7,17 @@ from argparse import ArgumentParser
 import json
 import math
 import pickle
+from collections import OrderedDict
 
 from convertsation import Conversation
 from item_processor import FlexARItemProcessor_Action_State
 
 
 class ItemProcessor(FlexARItemProcessor_Action_State):
+    # Consecutive samples share most frames (history and future images), so a small per-worker
+    # cache keyed on the image path avoids re-encoding each frame ~3 times with the VQ tokenizer.
+    _IMG_CACHE_SIZE = 512
+
     def __init__(
         self,
         tokenizer= "../ckpts/models--Alpha-VLLM--Lumina-mGPT-7B-768/snapshots/9624463a82ea5ce814af9b561dcd08a31082c3af",
@@ -21,6 +26,19 @@ class ItemProcessor(FlexARItemProcessor_Action_State):
     ):
         super().__init__(tokenizer, conv_template, target_size)
         print(self.crop_size_list)
+
+    def process_image(self, image):
+        if not isinstance(image, str):
+            return super().process_image(image)
+        cache = self.__dict__.setdefault("_img_cache", OrderedDict())
+        if image in cache:
+            cache.move_to_end(image)
+        else:
+            cache[image] = super().process_image(image)
+            if len(cache) > self._IMG_CACHE_SIZE:
+                cache.popitem(last=False)
+        out = cache[image]
+        return {"input_ids": list(out["input_ids"]), "labels": list(out["labels"])}
 
     def process_item(self, raw_item, training_mode=False, out_flatten=True):
 
@@ -69,6 +87,8 @@ if __name__ == "__main__":
     parser.add_argument("--target_size", type=int, default=512)
     args = parser.parse_args()
 
+    import torch
+    torch.set_num_threads(int(os.environ.get("TOKENIZE_THREADS", "2")))  # many workers share few cores
     item_processor = ItemProcessor(target_size=args.target_size, tokenizer=args.tokenizer)
 
     with open(args.in_filename) as f:
