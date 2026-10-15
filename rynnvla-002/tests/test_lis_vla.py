@@ -147,6 +147,18 @@ def test_latent_search(model):
     prior = model.generate_lis_action(prompt, gen, enable_search=False)
     assert prior.shape == (H, A)
 
+    # conservative override: an unreachable margin always keeps the System-1 chunk
+    model.config.lis_override_z = 1e9
+    try:
+        gated = model.generate_lis_action(prompt, gen)
+        info = model.last_search_info
+        assert info["gated"] and info["best_index"] == 0 and info["gap_z"] is not None
+        assert torch.allclose(gated.float(), prior.float(), atol=1e-6)
+    finally:
+        model.config.lis_override_z = 0.0
+    model.generate_lis_action(prompt, gen)
+    assert not model.last_search_info["gated"]
+
 
 def test_action_head_checkpoint_compatible():
     from model.modeling_lis_vla import LISActionHead

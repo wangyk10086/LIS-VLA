@@ -320,29 +320,44 @@ class LISHeads(nn.Module):
 
     # ------------------------------------------------------------------ inference: latent search
     @torch.no_grad()
+    def score_chunks(self, ctx_tokens, goal, z_t, chunks, prior_actions=None):
+        """Score candidate chunks (n, H, A) for one observation: imagined-future semantic score
+        minus action cost. Returns (total, semantic, cost), each of shape (n,)."""
+        cfg = self.cfg
+        n = chunks.shape[0]
+        z_hat = self.world_model(z_t.expand(n, -1, -1), ctx_tokens.expand(n, -1, -1), chunks)
+        r = self.evaluator(z_hat, goal.expand(n, -1))
+        cost = action_cost(chunks, prior_actions, cfg.lis_smooth_dims, cfg.lis_smooth_weight, cfg.lis_prior_weight)
+        return r.float() - cost, r.float(), cost
+
+    @torch.no_grad()
     def search(self, ctx_tokens, goal, head_feats, z_t, prior_actions=None, num_candidates=None,
                cem_iters=None, return_all: bool = False):
         """Imagination search for a single observation (B = 1).
 
         Returns the best chunk (H, A) in normalised space and a diagnostics dict.
+
+        Conservative override (``lis_override_z`` > 0): the System-1 chunk is replaced only when the
+        best candidate beats it by at least ``lis_override_z`` standard deviations of the candidate
+        scores; otherwise System 1 is executed unchanged. With an uninformative evaluator, a plain
+        argmax over N noisy scores almost always "wins" against System 1 (winner's curse).
         """
         cfg = self.cfg
         N = num_candidates or cfg.lis_num_candidates
         iters = cfg.lis_cem_iters if cem_iters is None else cem_iters
         n_elite = max(1, min(cfg.lis_cem_elites, N))
+        has_prior = prior_actions is not None and cfg.lis_include_prior
 
         cands = self.proposer.sample(head_feats, ctx_tokens, N, cfg.lis_fm_steps, cfg.lis_noise_scale)[0]  # (N,H,A)
-        if prior_actions is not None and cfg.lis_include_prior:
+        if has_prior:
             cands[0] = prior_actions.to(cands.dtype)
 
         def score(c):
-            n = c.shape[0]
-            z_hat = self.world_model(z_t.expand(n, -1, -1), ctx_tokens.expand(n, -1, -1), c)
-            r = self.evaluator(z_hat, goal.expand(n, -1))
-            cost = action_cost(c, prior_actions, cfg.lis_smooth_dims, cfg.lis_smooth_weight, cfg.lis_prior_weight)
-            return r - cost, r, cost
+            return self.score_chunks(ctx_tokens, goal, z_t, c, prior_actions)
 
         total, sem, cost = score(cands)
+        prior_total = float(total[0]) if has_prior else None
+        spread = float(total.std()) + 1e-6
         for _ in range(iters):  # optional CEM refinement around the elites
             elite_idx = total.topk(n_elite).indices
             elites = cands[elite_idx]
@@ -352,9 +367,18 @@ class LISHeads(nn.Module):
             total, sem, cost = score(cands)
 
         best = int(total.argmax())
-        info = {"best_index": best, "best_score": float(total[best]), "best_semantic": float(sem[best]),
+        gap_z = (float(total[best]) - prior_total) / spread if has_prior else None
+        override_z = float(getattr(cfg, "lis_override_z", 0.0) or 0.0)
+        gated = False
+        if has_prior and override_z > 0 and gap_z < override_z:
+            gated = True
+            chosen = prior_actions.to(cands.dtype)
+        else:
+            chosen = cands[best]
+        is_prior = gated or (has_prior and iters == 0 and best == 0)
+        info = {"best_index": 0 if is_prior else best, "best_score": float(total[best]), "best_semantic": float(sem[best]),
                 "best_cost": float(cost[best]), "score_mean": float(total.mean()), "score_std": float(total.std()),
-                "prior_score": float(total[0]) if (prior_actions is not None and cfg.lis_include_prior and iters == 0) else None}
+                "prior_score": prior_total, "gap_z": gap_z, "gated": gated}
         if return_all:
             info.update(candidates=cands, scores=total, semantic=sem, cost=cost)
-        return cands[best], info
+        return chosen, info

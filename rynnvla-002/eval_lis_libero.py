@@ -119,6 +119,9 @@ def main():
     ap.add_argument("--search", type=int, default=0, help="0 = System 1 only, 1 = LIS search")
     ap.add_argument("--num_candidates", type=int, default=None)
     ap.add_argument("--cem_iters", type=int, default=None)
+    ap.add_argument("--override_z", type=float, default=None, help="System-2 override margin in score SDs (0 = argmax)")
+    ap.add_argument("--prior_weight", type=float, default=None, help="penalty for deviating from the System-1 chunk")
+    ap.add_argument("--noise_scale", type=float, default=None, help="proposer noise scale (<1: candidates closer to System 1)")
     ap.add_argument("--save_video", type=int, default=0)
     ap.add_argument("--device", default="cuda:0")
     args = ap.parse_args()
@@ -155,6 +158,11 @@ def main():
     model = load_lis_model(args.ckpt, lis_weights=args.lis_weights, action_dim=7, time_horizon=args.time_horizon, max_position_embeddings=8192,
                            mask_image_logits=False, torch_dtype=torch.bfloat16,
                            attn_implementation=attn).to(args.device).eval()
+    for name, key in (("override_z", "lis_override_z"), ("prior_weight", "lis_prior_weight"),
+                      ("noise_scale", "lis_noise_scale")):
+        if getattr(args, name) is not None:  # search settings are read from the config at query time
+            setattr(model.config, key, getattr(args, name))
+            setattr(model.lis.cfg, key, getattr(args, name))
     item_processor = ItemProcessor(target_size=args.resolution, tokenizer=args.tokenizer_path)
     max_steps = MAX_STEPS[args.suite]
 
@@ -172,7 +180,7 @@ def main():
         obs = env.set_init_state(init_states[ep["episode"]])
         t, done_flag, err = 0, False, None
         his_img, his_wrist, chunk = [], [], []
-        replay, n_queries, overrides, q_lat = [], 0, 0, []
+        replay, n_queries, overrides, q_lat, gaps = [], 0, 0, [], []
         while t < max_steps + 10:
             try:
                 if t < 10:
@@ -195,6 +203,8 @@ def main():
                     info = model.last_search_info or {}
                     if info.get("search") and info.get("best_index", 0) != 0:
                         overrides += 1
+                    if info.get("gap_z") is not None:
+                        gaps.append(round(info["gap_z"], 2))
                     chunk = [x.float().cpu().numpy() for x in a]
                 act = chunk.pop(0)
                 obs, _, done_flag, _ = env.step(unnorm_action(act).tolist())
@@ -210,7 +220,8 @@ def main():
         rec = {**ep, "success": bool(done_flag), "steps": t, "seconds": round(time.time() - t0, 2),
                "queries": n_queries, "overrides": overrides,
                "query_latency_mean": round(float(np.mean(q_lat)), 4) if q_lat else None, "error": err,
-               "search": args.search, "num_candidates": args.num_candidates}
+               "search": args.search, "num_candidates": args.num_candidates, "override_z": args.override_z,
+               "prior_weight": args.prior_weight, "noise_scale": args.noise_scale, "gap_z": gaps}
         with open(res_path, "a") as f:
             f.write(json.dumps(rec) + "\n")
         print(f"[{ep['category']}] {ep['task_name'][:60]} success={rec['success']} t={t} {rec['seconds']}s", flush=True)

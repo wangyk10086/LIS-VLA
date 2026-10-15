@@ -42,6 +42,7 @@ LIS_DEFAULTS = dict(
     lis_num_candidates=16,       # N
     lis_cem_iters=0,             # optional CEM refinement rounds
     lis_cem_elites=4,
+    lis_override_z=0.0,          # >0: replace System 1 only if the best candidate wins by this many score SDs
     lis_include_prior=True,      # candidate #0 = deterministic System-1 chunk
     lis_smooth_weight=0.05,
     lis_smooth_dims=6,           # smoothness is applied to arm dims, not the gripper
