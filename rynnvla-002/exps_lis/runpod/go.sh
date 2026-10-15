@@ -1,0 +1,23 @@
+#!/bin/bash
+# Short entry point for the RunPod web terminal (long typed commands are unreliable there):
+#   bash go.sh prep  [suite H]            -> prep_data.sh in the background
+#   bash go.sh train [suite H max_hours]  -> train_runpod.sh in the background
+#   bash go.sh pilot <lis_weights> [N]    -> pilot_eval.sh, two streams on one GPU
+#   bash go.sh status                     -> tails of all logs
+R=/workspace/results
+S=/workspace/LIS-VLA/rynnvla-002/exps_lis/runpod
+mkdir -p $R
+case "${1:-status}" in
+  prep)  nohup bash $S/prep_data.sh ${2:-goal} ${3:-5} < /dev/null > $R/prep_${2:-goal}.out 2>&1 & ;;
+  train) nohup env MAX_HOURS=${4:-5} bash $S/train_runpod.sh ${2:-goal} ${3:-5} < /dev/null > $R/train_${2:-goal}.out 2>&1 & ;;
+  pilot) for s in 0 1; do
+           nohup bash $S/pilot_eval.sh $2 ${3:-200} $s 2 < /dev/null > $R/pilot_shard$s.out 2>&1 &
+           sleep 120   # stagger model loading
+         done ;;
+  status) ;;
+  *) echo "unknown command $1"; exit 1 ;;
+esac
+sleep 3
+for f in $R/*.out; do echo "== $f"; grep -v "Skipping no-op" $f | tail -n 4 | cut -c1-200; done
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader
+df -h / | tail -1
