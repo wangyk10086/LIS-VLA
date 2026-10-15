@@ -2,6 +2,7 @@
 # Build LIS-VLA training data for one LIBERO suite on a single-GPU pod, then pack it onto the volume.
 #
 #   bash prep_data.sh goal 5        # suite (goal|10|object|spatial), action chunk H
+#   START_STEP=4 bash prep_data.sh goal 5   # resume at tokenisation (steps 1-3 already on local disk)
 #
 # Steps: download raw LIBERO demos -> replay them without no-op actions at 256 px (one process per
 # task) -> dump images/actions/states -> LIS conversations -> VQ tokens -> one tar on the volume:
@@ -15,6 +16,7 @@ RV=$W/LIS-VLA/rynnvla-002
 LOCAL=${LOCAL_DATA:-/root/pd}
 LOG=$W/results/prep_${SUITE}
 OUT_TAR=$W/data/lis_${SUITE}_H${H}.tar
+START_STEP=${START_STEP:-1}
 mkdir -p $LOCAL $LOG $W/data/libero_raw
 
 # training demos come from standard LIBERO
@@ -25,6 +27,7 @@ if [ -e $RV/processed_data ] && [ ! -L $RV/processed_data ]; then
 fi
 ln -sfn $LOCAL $RV/processed_data
 
+if [ "$START_STEP" -le 3 ]; then
 echo "[$(date +%H:%M)] 1/5 download raw demos"
 python - <<EOF
 from huggingface_hub import snapshot_download
@@ -65,8 +68,12 @@ python regenerate_libero_dataset_save_img_action_state_wrist.py --libero_task_su
 rm -rf $NOOP   # 15-20 GB of uncompressed frames, no longer needed
 echo "frames: $(find $IMG -name 'image_*.png' -path '*third_view*' | wc -l)"
 
+fi
+
 echo "[$(date +%H:%M)] 4/5 LIS conversations + VQ tokens"
-LIS_ONLY_DATA=1 bash $RV/exps_lis/prepare_data.sh $SUITE $H > $LOG/prepare.log 2>&1 || {
+rm -rf $LOCAL/tokens/libero_${SUITE}_his_2_*_lis $LOCAL/concate_tokens   # partial shards would be double-counted
+# tokenisation is CPU-bound per worker (~1 GB GPU memory each): use many workers
+NUM_PROCS=${NUM_PROCS:-36} LIS_ONLY_DATA=1 bash $RV/exps_lis/prepare_data.sh $SUITE $H > $LOG/prepare.log 2>&1 || {
   tail -30 $LOG/prepare.log; exit 1; }
 grep -E "samples ->|find [0-9]+ sub-records" $LOG/prepare.log || true
 CONCAT=$LOCAL/concate_tokens/libero_${SUITE}_his_2_third_view_wrist_w_state_${H}_256_lis_awm.json
