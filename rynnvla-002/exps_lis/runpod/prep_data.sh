@@ -38,7 +38,7 @@ echo "[$(date +%H:%M)] 2/5 replay demos without no-ops (parallel, one process pe
 NOOP=$LOCAL/libero_${SUITE}_no_noops_t_256
 mkdir -p $NOOP
 cd $RV/libero_util
-NT=$(python -c "from libero.libero import benchmark; print(benchmark.get_benchmark_dict()['libero_${SUITE}']().n_tasks)")
+NT=$(python -c "from libero.libero import benchmark; print(benchmark.get_benchmark_dict()['libero_${SUITE}']().n_tasks)" | tail -1)   # LIBERO also prints log lines
 pids=()
 for t in $(seq 0 $((NT - 1))); do
   python regenerate_libero_dataset_filter_no_op.py --libero_task_suite libero_${SUITE} --libero_raw_data_dir $RAW \
