@@ -72,8 +72,8 @@ fi
 
 echo "[$(date +%H:%M)] 4/5 LIS conversations + VQ tokens"
 rm -rf $LOCAL/tokens/libero_${SUITE}_his_2_*_lis $LOCAL/concate_tokens   # partial shards would be double-counted
-# tokenisation is CPU-bound per worker (~1 GB GPU memory each): use many workers
-NUM_PROCS=${NUM_PROCS:-36} LIS_ONLY_DATA=1 bash $RV/exps_lis/prepare_data.sh $SUITE $H > $LOG/prepare.log 2>&1 || {
+# tokenisation is CPU-bound and an A40 pod has ~9 vCPUs: about one worker per core
+NUM_PROCS=${NUM_PROCS:-10} LIS_ONLY_DATA=1 bash $RV/exps_lis/prepare_data.sh $SUITE $H > $LOG/prepare.log 2>&1 || {
   tail -30 $LOG/prepare.log; exit 1; }
 grep -E "samples ->|find [0-9]+ sub-records" $LOG/prepare.log || true
 CONCAT=$LOCAL/concate_tokens/libero_${SUITE}_his_2_third_view_wrist_w_state_${H}_256_lis_awm.json
