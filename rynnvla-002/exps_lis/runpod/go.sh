@@ -13,10 +13,9 @@ case "${1:-status}" in
   tok)   pkill -f prep_data.sh; pkill -f pretoken_lis_model; pkill -f pre_tokenize_action_state_local; sleep 5
          nohup env START_STEP=4 bash $S/prep_data.sh ${2:-goal} ${3:-5} < /dev/null >> $R/prep_${2:-goal}.out 2>&1 & ;;
   train) nohup env MAX_HOURS=${4:-5} bash $S/train_runpod.sh ${2:-goal} ${3:-5} < /dev/null > $R/train_${2:-goal}.out 2>&1 & ;;
-  pilot) for s in 0 1; do
-           nohup bash $S/pilot_eval.sh $2 ${3:-200} $s 2 < /dev/null > $R/pilot_shard$s.out 2>&1 &
-           sleep 120   # stagger model loading
-         done ;;
+  pilot) # the whole launcher runs detached: closing the web terminal must not stop the staggered start
+         nohup bash -c "for s in 0 1; do bash $S/pilot_eval.sh $2 ${3:-200} \$s 2 < /dev/null > $R/pilot_shard\$s.out 2>&1 & sleep 120; done; wait" \
+           < /dev/null > $R/pilot_launcher.out 2>&1 & ;;
   status) ;;
   *) echo "unknown command $1"; exit 1 ;;
 esac
