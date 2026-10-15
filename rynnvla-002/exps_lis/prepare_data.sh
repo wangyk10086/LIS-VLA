@@ -8,20 +8,25 @@ SUITE=${1:-goal}
 H=${2:-5}
 RES=256
 TOKENIZER=${TOKENIZER:-../ckpts/models--Alpha-VLLM--Lumina-mGPT-7B-768/snapshots/9624463a82ea5ce814af9b561dcd08a31082c3af}
+NUM_GPUS=${NUM_GPUS:-$(nvidia-smi -L | wc -l)}
+NUM_PROCS=${NUM_PROCS:-$((NUM_GPUS * 8))}
 BASE=../processed_data/libero_${SUITE}_image_state_action_t_${RES}
 
 cd "$(dirname "$0")/../data"
+[ -d "$TOKENIZER" ] || TOKENIZER=../ckpts/lumina_tokenizer   # layout created by runpod/setup_volume.sh
 python lis_conv_generation.py --base_dir $BASE --his 2 --len_action $H --task_name $SUITE \
     --resolution $RES --with_state --img_names imgs_third_view imgs_wrist --output_dir ../processed_data/convs
 python pretoken_lis_model.py --task $SUITE --resolution $RES --with_state \
-    --img_names imgs_third_view imgs_wrist --his 2 --len_action $H --tokenizer_path $TOKENIZER
+    --img_names imgs_third_view imgs_wrist --his 2 --len_action $H --tokenizer_path $TOKENIZER \
+    --num_gpus $NUM_GPUS --num_procs $NUM_PROCS
 bash concate_record_libero.sh
 
 PATTERNS="libero_${SUITE}_his_2_{}_third_view_wrist_w_state_${H}_${RES}_lis"
-# mix in the original world-model and VLA data when they exist
-[ -d ../processed_data/tokens/libero_${SUITE}_his_1_train_third_view_wrist_a2i_${RES} ] && \
+# mix in the original world-model and VLA data when they exist (useful only for --lis_train_scope all;
+# set LIS_ONLY_DATA=1 to skip them)
+[ "${LIS_ONLY_DATA:-0}" != 1 ] && [ -d ../processed_data/tokens/libero_${SUITE}_his_1_train_third_view_wrist_a2i_${RES} ] && \
     PATTERNS="$PATTERNS libero_${SUITE}_his_1_{}_third_view_wrist_a2i_${RES}"
-[ -d ../processed_data/tokens/libero_${SUITE}_his_2_train_third_view_wrist_w_state_${H}_${RES} ] && \
+[ "${LIS_ONLY_DATA:-0}" != 1 ] && [ -d ../processed_data/tokens/libero_${SUITE}_his_2_train_third_view_wrist_w_state_${H}_${RES} ] && \
     PATTERNS="$PATTERNS libero_${SUITE}_his_2_{}_third_view_wrist_w_state_${H}_${RES}"
 python concate_action_world_model_data_libero.py --source_dir_patterns $PATTERNS \
     --all_patterns libero_${SUITE}_his_2_third_view_wrist_w_state_${H}_${RES}_lis_awm

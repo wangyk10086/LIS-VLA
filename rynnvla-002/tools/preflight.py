@@ -21,6 +21,7 @@ def main():
     ap.add_argument("--suite", default="libero_goal")
     ap.add_argument("--time_horizon", type=int, default=5)
     ap.add_argument("--skip_model", action="store_true")
+    ap.add_argument("--lis_weights", default=None)
     args = ap.parse_args()
     report = {}
 
@@ -61,7 +62,7 @@ def main():
                                    np.zeros(8), "his_2_third_view_wrist_w_state")
         report["prompt_tokens"] = len(toks)
         t = time.time()
-        model = load_lis_model(args.ckpt, action_dim=7, time_horizon=args.time_horizon, max_position_embeddings=8192,
+        model = load_lis_model(args.ckpt, lis_weights=args.lis_weights, action_dim=7, time_horizon=args.time_horizon, max_position_embeddings=8192,
                                mask_image_logits=False, torch_dtype=torch.bfloat16, attn_implementation="sdpa").cuda().eval()
         report["model_load_s"] = round(time.time() - t, 1)
         from libero_util.lis_utils import get_action_lis

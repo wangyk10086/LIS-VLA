@@ -101,6 +101,7 @@ def build_episode_list(args):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--lis_weights", default=None, help="trained System-2 weights (only lis.*) loaded on top of --ckpt")
     ap.add_argument("--suite", required=True, choices=list(MAX_STEPS))
     ap.add_argument("--benchmark", choices=["vanilla", "plus"], default="vanilla")
     ap.add_argument("--categories", nargs="*", default=None)
@@ -151,7 +152,7 @@ def main():
         attn = "flash_attention_2"
     except ImportError:
         attn = "sdpa"  # at inference the prompt mask is plain causal, so the backend does not change results
-    model = load_lis_model(args.ckpt, action_dim=7, time_horizon=args.time_horizon, max_position_embeddings=8192,
+    model = load_lis_model(args.ckpt, lis_weights=args.lis_weights, action_dim=7, time_horizon=args.time_horizon, max_position_embeddings=8192,
                            mask_image_logits=False, torch_dtype=torch.bfloat16,
                            attn_implementation=attn).to(args.device).eval()
     item_processor = ItemProcessor(target_size=args.resolution, tokenizer=args.tokenizer_path)

@@ -291,7 +291,8 @@ class ChameleonXLLMXForConditionalGeneration_LIS(ChameleonXLLMXForConditionalGen
         """Hook used by the RynnVLA-002 trainer to decide ``requires_grad``."""
         scope = self.config.lis_train_scope
         prefixes = {"all": ("",), "lis_and_head": ("lis.", "action_head."), "lis_only": ("lis.",)}[scope]
-        return [(n, p) for n, p in self.named_parameters() if n.startswith(prefixes)]
+        # a dict: the trainer's ``--only_save_trainable`` path calls ``.keys()`` on it
+        return {n: p for n, p in self.named_parameters() if n.startswith(prefixes)}
 
 
 @torch.no_grad()
@@ -316,12 +317,47 @@ def reset_lis_parameters(lis: nn.Module) -> None:
         nn.init.zeros_(mod.bias)
 
 
-def load_lis_model(path: str, **kwargs):
+def read_lis_state_dict(path: str) -> Dict[str, torch.Tensor]:
+    """Read the ``lis.*`` tensors from a checkpoint directory or file (safetensors or torch .bin).
+    Training with ``--only_save_trainable`` writes exactly these tensors (~50M parameters)."""
+    import glob
+    import os
+
+    files = [path] if os.path.isfile(path) else (
+        sorted(glob.glob(os.path.join(path, "*.safetensors"))) or sorted(glob.glob(os.path.join(path, "*.bin"))))
+    if not files:
+        raise FileNotFoundError(f"no weights found in {path}")
+    sd = {}
+    for f in files:
+        if f.endswith(".safetensors"):
+            from safetensors.torch import load_file
+            part = load_file(f)
+        else:
+            part = torch.load(f, map_location="cpu")
+        sd.update({k: v for k, v in part.items() if k.startswith("lis.")})
+    if not sd:
+        raise ValueError(f"{path} contains no lis.* tensors")
+    return sd
+
+
+def load_lis_model(path: str, lis_weights: Optional[str] = None, **kwargs):
     """``from_pretrained`` that (re)initialises the LIS heads when the checkpoint lacks them,
-    e.g. when fine-tuning from a released RynnVLA-002 checkpoint."""
+    e.g. when fine-tuning from a released RynnVLA-002 checkpoint. ``lis_weights`` then loads
+    trained System-2 weights (a small checkpoint with only ``lis.*``) on top of the base model."""
     model, info = ChameleonXLLMXForConditionalGeneration_LIS.from_pretrained(path, output_loading_info=True, **kwargs)
     missing = [k for k in info.get("missing_keys", []) if k.startswith("lis.")]
     if missing:
         logger.info(f"LIS heads not found in {path} ({len(missing)} tensors); initialising from scratch")
         reset_lis_parameters(model.lis)
+    if lis_weights:
+        sd = read_lis_state_dict(lis_weights)
+        params = {k for k, _ in model.named_parameters() if k.startswith("lis.")}
+        absent = params - set(sd)
+        unexpected = set(sd) - {k for k in model.state_dict() if k.startswith("lis.")}
+        if absent or unexpected:
+            raise ValueError(f"LIS weights in {lis_weights} do not match the model: "
+                             f"missing {sorted(absent)[:5]}, unexpected {sorted(unexpected)[:5]}")
+        ref = next(model.lis.parameters())
+        model.load_state_dict({k: v.to(ref.dtype) for k, v in sd.items()}, strict=False)
+        logger.info(f"loaded {len(sd)} trained LIS tensors from {lis_weights}")
     return model

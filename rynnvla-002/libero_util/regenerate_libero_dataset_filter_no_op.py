@@ -65,7 +65,7 @@ def main(args):
     print(f"Regenerating {args.libero_task_suite} dataset!")
 
     # Create target directory
-    if os.path.isdir(args.libero_target_dir):
+    if os.path.isdir(args.libero_target_dir) and not args.yes:
         user_input = input(f"Target directory already exists at path: {args.libero_target_dir}\nEnter 'y' to overwrite the directory, or anything else to exit: ")
         if user_input != 'y':
             exit()
@@ -74,6 +74,8 @@ def main(args):
     # Prepare JSON file to record success/false and initial states per episode
     metainfo_json_dict = {}
     metainfo_json_out_path = f"{args.libero_task_suite}_metainfo.json"
+    if args.task_ids:  # one process per task (see exps_lis/runpod/prep_data.sh): separate metainfo files
+        metainfo_json_out_path = os.path.join(args.libero_target_dir, f"metainfo_tasks_{args.task_ids.replace(',', '_')}.json")
     with open(metainfo_json_out_path, "w") as f:
         # Just test that we can write to this file (we overwrite it later)
         json.dump(metainfo_json_dict, f)
@@ -91,7 +93,8 @@ def main(args):
     IMAGE_RESOLUTION = args.image_resolution
     print(IMAGE_RESOLUTION)
 
-    for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
+    task_ids = [int(x) for x in args.task_ids.split(",")] if args.task_ids else range(num_tasks_in_suite)
+    for task_id in tqdm.tqdm(task_ids):
         # Get task in suite
         task = task_suite.get_task(task_id)
         env, task_description = get_libero_env(task, resolution=IMAGE_RESOLUTION)
@@ -241,6 +244,8 @@ if __name__ == "__main__":
                         help="Path to regenerated dataset directory. Example: ./LIBERO/libero/datasets/slibero_spatial_no_noop", required=True)
     parser.add_argument("--image_resolution", type=int,
                         help="image resolution, 256 or 512", required=True)
+    parser.add_argument("--task_ids", type=str, default="", help="comma-separated task indices (default: all)")
+    parser.add_argument("--yes", action="store_true", help="do not ask before writing into an existing target dir")
     args = parser.parse_args()
 
     # Start data regeneration

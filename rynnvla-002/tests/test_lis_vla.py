@@ -177,3 +177,27 @@ def test_load_checkpoint_without_lis_weights(tmp_path):
         assert torch.isfinite(p).all(), n
     assert loaded.lis.world_model.out.weight.abs().sum() == 0
     assert torch.equal(loaded.action_head.hidden_projection.weight, m.action_head.hidden_projection.weight)
+
+
+def test_lis_weights_roundtrip(tmp_path):
+    """only-trainable checkpoint (lis.*) saved by the trainer loads on top of a base checkpoint"""
+    from safetensors.torch import save_file
+
+    from model import load_lis_model
+    from model.modeling_lis_vla import ChameleonXLLMXForConditionalGeneration_LIS
+
+    torch.manual_seed(0)
+    base = ChameleonXLLMXForConditionalGeneration_LIS(tiny_config(lis_train_scope="lis_only"))
+    trainable = base.get_trainable_params()
+    assert isinstance(trainable, dict) and trainable and all(k.startswith("lis.") for k in trainable)
+    base.save_pretrained(tmp_path / "base")
+    trained = {k: torch.randn_like(p) for k, p in trainable.items()}
+    (tmp_path / "lis").mkdir()
+    save_file(trained, str(tmp_path / "lis" / "model.safetensors"))
+    m = load_lis_model(str(tmp_path / "base"), lis_weights=str(tmp_path / "lis"))
+    sd = m.state_dict()
+    for k, v in trained.items():
+        assert torch.equal(sd[k], v.to(sd[k].dtype)), k
+    for k, v in base.state_dict().items():
+        if not k.startswith("lis."):
+            assert torch.equal(sd[k], v), k
