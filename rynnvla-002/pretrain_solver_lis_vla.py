@@ -48,7 +48,9 @@ class Solver(BaseSolver):
 
     def _model_func(self, init_from: str):
         if self.dp_rank == 0:
-            model = load_lis_model(init_from, torch_dtype=torch.bfloat16, device_map="cpu", **self._common_kwargs())
+            # no device_map: transformers' low-memory loader cannot materialise the 0-dim LIS parameters
+            # (e.g. the evaluator temperature) that a released RynnVLA-002 checkpoint lacks; loads on CPU
+            model = load_lis_model(init_from, torch_dtype=torch.bfloat16, **self._common_kwargs())
         else:
             with init_empty_weights():
                 config = LISVLAConfig.from_pretrained(init_from, torch_dtype=torch.bfloat16, **self._common_kwargs())
