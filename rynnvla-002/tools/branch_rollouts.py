@@ -140,6 +140,7 @@ def main():
                 env.close()
             env, _ = get_libero_env(task, resolution=args.resolution)
             cur_task = p["task_index"]
+        main_success = None
         try:
             env.reset()
             obs = env.set_init_state(bench.get_task_init_states(p["task_index"])[p["init"]])
@@ -162,6 +163,9 @@ def main():
                 idx = [0] + [int(a) for a in alts]
                 suc, end = [], []
                 for k in idx:
+                    # reset first: an episode that ran to the horizon leaves robosuite's "done" flag set, and
+                    # restoring a sim state alone does not clear it ("executing action in terminated episode")
+                    env.reset()
                     obs_b = env.set_init_state(pt["sim"])
                     s, e = play(env, task, obs_b, pt["t"], pt["his_img"], pt["his_wrist"], first_chunk=pt["cands"][k])
                     suc.append(s)
@@ -180,7 +184,8 @@ def main():
                    "alt_success": [int(sum(b[1:])) for b in BSUC], "seconds": round(time.time() - t0, 1), "error": None}
         except Exception as e:  # keep going; log the failure
             traceback.print_exc()
-            rec = {"id": p["id"], "task": p["task_index"], "error": f"{type(e).__name__}: {e}",
+            rec = {"id": p["id"], "task": p["task_index"], "main_success": main_success,
+                   "error": f"{type(e).__name__}: {e}",
                    "seconds": round(time.time() - t0, 1)}
         with open(os.path.join(args.out, f"log_shard{args.shard}.jsonl"), "a") as f:
             f.write(json.dumps(rec) + "\n")
