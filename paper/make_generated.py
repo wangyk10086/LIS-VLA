@@ -185,3 +185,10 @@ if os.path.exists(S3):
 else:
     mac("altIndepFifteen", "\\textbf{??}")
 open(os.path.join(GEN, "numbers.tex"), "w").write("\n".join(macros) + "\n")
+
+# ---------------- rescue by position (for the text)
+if os.path.exists(S3):
+    for pos, name in (("early", "posEarly"), ("middle", "posMiddle"), ("late", "posLate")):
+        k, n, p, lo, hi = parse(s3["rescuable_by_position"][pos])
+        mac(name, p); mac(name + "K", k); mac(name + "N", n)
+    open(os.path.join(GEN, "numbers.tex"), "w").write("\n".join(macros) + "\n")
