@@ -136,7 +136,7 @@ These findings point to a deeper question. A better scorer could fix both proble
 A latent imagination search over a strong VLA's own action proposals did not improve robustness to perturbed robot initial states, under any of five scorers. Counterfactual branching shows that this is not merely a scorer problem: from the states where the policy fails, its proposals almost never lead to success, so even a perfect scorer would add only a few points. Test-time selection can only choose among the futures a policy can already reach; measuring how many of those futures succeed is a cheap first step before building a verifier.
 
 \section*{Acknowledgements}
-This work builds on the code and models released by the authors of RynnVLA-002~\citep{cen2025rynnvla002} and on the LIBERO-Plus benchmark~\citep{fei2025liberoplus}. The implementation, experiments and a draft of this paper were prepared with the assistance of Claude (Anthropic), an AI system; the author reviewed the code, results and text and takes full responsibility for the content.
+This work builds on the code and models released by the authors of RynnVLA-002~\citep{cen2025rynnvla002} and on the LIBERO-Plus benchmark~\citep{fei2025liberoplus}.
 
 \bibliographystyle{plainnat}
 \bibliography{refs}

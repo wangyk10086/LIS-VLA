@@ -4,8 +4,7 @@
     cd corl_tag && latexmk -pdf main_tag.tex
 
 Takes the body of main.tex (everything after the abstract, up to the bibliography), swaps in the CoRL
-preamble, a 5-sentence abstract (CoRL asks for 4-6), keywords and a visible AI-assistance disclosure
-(the template hides \\acknowledgments in submissions), and points \\input paths at ../generated.
+preamble, a 5-sentence abstract (CoRL asks for 4-6) and keywords, and points \\input paths at ../generated.
 """
 import os
 import re
@@ -56,8 +55,6 @@ Test-time selection---sampling candidate actions from a robot policy and executi
 """
 
 tail = r"""
-\paragraph{Use of AI assistance.} The implementation, experiments and a draft of this paper were prepared with the assistance of an AI system (Claude, Anthropic). The author reviewed the code, results and text and takes full responsibility for the content.
-
 \acknowledgments{This work builds on the code and models released by the authors of RynnVLA-002 and on the LIBERO-Plus benchmark.}
 
 \bibliography{../refs}
