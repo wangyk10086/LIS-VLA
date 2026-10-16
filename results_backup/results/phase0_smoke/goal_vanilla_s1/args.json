@@ -1,0 +1,22 @@
+{
+ "ckpt": "/workspace/LIS-VLA/rynnvla-002/ckpts/RynnVLA-002/VLA_model_256/libero_goal",
+ "suite": "libero_goal",
+ "benchmark": "vanilla",
+ "categories": null,
+ "episodes_per_task": 10,
+ "max_per_category": 0,
+ "limit": 2,
+ "vanilla_root": "/workspace/third_party/LIBERO",
+ "shard": 0,
+ "num_shards": 1,
+ "out": "/workspace/results/phase0_smoke/goal_vanilla_s1",
+ "time_horizon": 5,
+ "his": "his_2_third_view_wrist_w_state",
+ "resolution": 256,
+ "tokenizer_path": "/workspace/LIS-VLA/rynnvla-002/ckpts/lumina_tokenizer",
+ "search": 0,
+ "num_candidates": null,
+ "cem_iters": null,
+ "save_video": 0,
+ "device": "cuda:0"
+}

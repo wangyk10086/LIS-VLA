@@ -1,0 +1,21 @@
+== A_gate_p90
+shared episodes: 100 (baseline has 834, new has 100; errors in new: 0)
+| group | n | baseline | new | diff (pts) | 95% CI | new-only wins | base-only wins | McNemar p |
+|---|---|---|---|---|---|---|---|---|
+| ALL | 100 | 50.0 | 44.0 | -6.0 | [-13.0, +1.0] | 3 | 9 | 0.146 |
+| Robot Initial States | 100 | 50.0 | 44.0 | -6.0 | [-13.0, +0.0] | 3 | 9 | 0.146 |
+new: mean query latency 1.149 s, System-2 override rate 7.9%
+== B_gate_p75_trust
+shared episodes: 100 (baseline has 834, new has 100; errors in new: 0)
+| group | n | baseline | new | diff (pts) | 95% CI | new-only wins | base-only wins | McNemar p |
+|---|---|---|---|---|---|---|---|---|
+| ALL | 100 | 50.0 | 50.0 | +0.0 | [+0.0, +0.0] | 0 | 0 | 1 |
+| Robot Initial States | 100 | 50.0 | 50.0 | +0.0 | [+0.0, +0.0] | 0 | 0 | 1 |
+new: mean query latency 1.084 s, System-2 override rate 0.2%
+== pilot
+shared episodes: 100 (baseline has 834, new has 100; errors in new: 0)
+| group | n | baseline | new | diff (pts) | 95% CI | new-only wins | base-only wins | McNemar p |
+|---|---|---|---|---|---|---|---|---|
+| ALL | 100 | 50.0 | 37.0 | -13.0 | [-24.0, -1.0] | 11 | 24 | 0.041 |
+| Robot Initial States | 100 | 50.0 | 37.0 | -13.0 | [-24.0, -1.0] | 11 | 24 | 0.041 |
+new: mean query latency 0.783 s, System-2 override rate 71.8%

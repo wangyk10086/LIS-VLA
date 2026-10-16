@@ -1,0 +1,6 @@
+/workspace/results/phase0/logs/DONE_shard0
+/workspace/results/phase0/logs/DONE_shard1
+/workspace/results/phase0/logs/DONE_shard2
+/workspace/results/phase0/logs/DONE_shard3
+/workspace/results/phase0/logs/DONE_shard4
+/workspace/results/phase0/logs/DONE_shard5

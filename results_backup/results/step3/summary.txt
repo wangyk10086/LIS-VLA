@@ -1,0 +1,21 @@
+### step 3 (counterfactual branching) 2026-10-16 12:36 UTC
+episodes: 115
+errors: 0
+system1_success: 55/115 = 47.8% [38.9, 56.9]
+system1_branch_reproduces_main: 216/235 = 91.9% [87.7, 94.8]
+failed_eps_branch_points: 163
+rescuable_points (>=1 of the alternatives succeeds): 8/163 = 4.9% [2.5, 9.4]
+rescuable_failed_episodes (any point): 8/60 = 13.3% [6.9, 24.2]
+random_alternative_success_rate_in_failed_states: 2.7
+random_alternative_success_rate_in_successful_states: 93.1
+rescuable_by_position: {'early': '5/47 = 10.6% [4.6, 22.6]', 'late': '1/60 = 1.7% [0.3, 8.9]', 'middle': '2/56 = 3.6% [1.0, 12.1]'}
+oracle_episode_success_upper_bound: 63/115 = 54.8% [45.7, 63.6]
+== error tails
+-- /workspace/results/step3/logs/branch_0.log
+{"id": 100100, "task": 0, "sigma": 0.107, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [3, 0, 0], "seconds": 487.9, "error": null}
+{"id": 100102, "task": 2, "sigma": 0.291, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 658.4, "error": null}
+{"id": 100104, "task": 4, "sigma": 0.11, "main_success": false, "points": 3, "s1_branch_success": [true, false, false], "alt_success": [3, 0, 0], "seconds": 396.1, "error": null}
+-- /workspace/results/step3/logs/branch_1.log
+{"id": 100099, "task": 9, "sigma": 0.236, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 683.9, "error": null}
+{"id": 100103, "task": 3, "sigma": 0.058, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 239.6, "error": null}
+{"id": 100109, "task": 9, "sigma": 0.189, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [1, 0, 0], "seconds": 509.5, "error": null}
