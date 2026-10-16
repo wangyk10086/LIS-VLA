@@ -63,6 +63,7 @@ open(os.path.join(GEN, "tab_selection.tex"), "w").write(r"""\begin{table*}[t]
 \caption{Test-time selection among 16 candidate chunks versus System~1 alone, on the same 100 LIBERO-Plus Goal episodes with perturbed robot initial states (System~1: 50/100). Override: share of control steps at which a non-System-1 chunk was executed. Wins: episodes solved only by the variant / only by System~1. CI: paired bootstrap; $p$: exact McNemar test.}
 \label{tab:selection}
 \small
+\resizebox{\linewidth}{!}{%
 \begin{tabular}{lrrrlrr}
 \toprule
 Selection rule & Override (\%) & Success & $\Delta$ (pts) & 95\% CI & Wins & $p$ \\
@@ -70,7 +71,7 @@ Selection rule & Override (\%) & Success & $\Delta$ (pts) & 95\% CI & Wins & $p$
 System~1 only & 0.0 & 50 & -- & -- & -- & -- \\
 """ + "\n".join(rows) + r"""
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table*}
 """)
 with open(os.path.join(GEN, "override_vs_delta.dat"), "w") as f:

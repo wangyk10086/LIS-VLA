@@ -1,0 +1,96 @@
+\relax 
+\bibstyle{corlabbrvnat}
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{brohan2023rt2}
+\citation{kim2024openvla}
+\citation{black2024pi0}
+\citation{fei2025liberoplus}
+\citation{liu2023libero}
+\citation{cen2025rynnvla002}
+\citation{kwok2025robomonkey}
+\citation{nakamoto2024vgps}
+\citation{cen2025worldvla,cen2025rynnvla002}
+\citation{hafner2018planet,hansen2023tdmpc2,zhou2024dinowm}
+\citation{smith2006optimizer}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\citation{kwok2025robomonkey}
+\citation{nakamoto2024vgps}
+\citation{hafner2018planet}
+\citation{hafner2023dreamerv3}
+\citation{hansen2023tdmpc2}
+\citation{zhou2024dinowm}
+\citation{cen2025worldvla}
+\citation{cen2025rynnvla002}
+\citation{ross2011dagger}
+\citation{cen2025rynnvla002}
+\citation{chameleon2024}
+\citation{fei2025liberoplus}
+\citation{lipman2022flow,liu2022rectified}
+\citation{assran2023ijepa}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{Related work}{section.2}{}}
+\newlabel{sec:related@cref}{{[section][2][]2}{[1][2][]2}}
+\@writefile{toc}{\contentsline {paragraph}{Test-time selection for robot policies.}{2}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{World models for action selection.}{2}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Why imitation policies fail.}{2}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Setup}{2}{section.3}\protected@file@percent }
+\newlabel{sec:setup}{{3}{2}{Setup}{section.3}{}}
+\newlabel{sec:setup@cref}{{[section][3][]3}{[1][2][]2}}
+\@writefile{toc}{\contentsline {paragraph}{Policy (System~1).}{2}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Benchmark.}{2}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Search (System~2).}{2}{section*.6}\protected@file@percent }
+\citation{smith2006optimizer}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces System~1 (RynnVLA-002, released checkpoints) success rates. 95\% Wilson intervals.}}{3}{table.1}\protected@file@percent }
+\newlabel{tab:baseline}{{1}{3}{System~1 (RynnVLA-002, released checkpoints) success rates. 95\% Wilson intervals}{table.1}{}}
+\newlabel{tab:baseline@cref}{{[table][1][]1}{[1][2][]3}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Test-time selection among 16 candidate chunks versus System~1 alone, on the same 100 LIBERO-Plus Goal episodes with perturbed robot initial states (System~1: 50/100). Override: share of control steps at which a non-System-1 chunk was executed. Wins: episodes solved only by the variant / only by System~1. CI: paired bootstrap; $p$: exact McNemar test.}}{3}{table.2}\protected@file@percent }
+\newlabel{tab:selection}{{2}{3}{Test-time selection among 16 candidate chunks versus System~1 alone, on the same 100 LIBERO-Plus Goal episodes with perturbed robot initial states (System~1: 50/100). Override: share of control steps at which a non-System-1 chunk was executed. Wins: episodes solved only by the variant / only by System~1. CI: paired bootstrap; $p$: exact McNemar test}{table.2}{}}
+\newlabel{tab:selection@cref}{{[table][2][]2}{[1][3][]3}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Test-time selection does not help}{3}{section.4}\protected@file@percent }
+\newlabel{sec:selection}{{4}{3}{Test-time selection does not help}{section.4}{}}
+\newlabel{sec:selection@cref}{{[section][4][]4}{[1][3][]3}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Why the scorers fail}{3}{section.5}\protected@file@percent }
+\newlabel{sec:why}{{5}{3}{Why the scorers fail}{section.5}{}}
+\newlabel{sec:why@cref}{{[section][5][]5}{[1][3][]3}}
+\@writefile{toc}{\contentsline {paragraph}{The language-similarity scorer has signal, but not where it is needed.}{3}{section*.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Change in success against how often System~2 overrides System~1, for the five variants in \cref  {tab:selection} (bars: paired-bootstrap 95\% CI).}}{4}{figure.1}\protected@file@percent }
+\newlabel{fig:override}{{1}{4}{Change in success against how often System~2 overrides System~1, for the five variants in \cref {tab:selection} (bars: paired-bootstrap 95\% CI)}{figure.1}{}}
+\newlabel{fig:override@cref}{{[figure][1][]1}{[1][3][]4}}
+\@writefile{toc}{\contentsline {paragraph}{Outcome-trained scorers learn state value, not action value.}{4}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Measuring head-room by counterfactual branching}{4}{section.6}\protected@file@percent }
+\newlabel{sec:headroom}{{6}{4}{Measuring head-room by counterfactual branching}{section.6}{}}
+\newlabel{sec:headroom@cref}{{[section][6][]6}{[1][4][]4}}
+\@writefile{toc}{\contentsline {paragraph}{Protocol.}{4}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Results.}{4}{section*.10}\protected@file@percent }
+\citation{ross2011dagger}
+\citation{ross2011dagger}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Counterfactual branching on 115 LIBERO-Goal training-task episodes with our own robot initial-state perturbations (disjoint from the LIBERO-Plus test variants). At each branch point the simulator is restored and one alternative chunk from the proposer is executed, after which System~1 continues to the end of the episode. 95\% Wilson intervals.}}{5}{table.3}\protected@file@percent }
+\newlabel{tab:headroom}{{3}{5}{Counterfactual branching on 115 LIBERO-Goal training-task episodes with our own robot initial-state perturbations (disjoint from the LIBERO-Plus test variants). At each branch point the simulator is restored and one alternative chunk from the proposer is executed, after which System~1 continues to the end of the episode. 95\% Wilson intervals}{table.3}{}}
+\newlabel{tab:headroom@cref}{{[table][3][]3}{[1][5][]5}}
+\@writefile{toc}{\contentsline {paragraph}{Interpretation.}{5}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Limitations and discussion}{5}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{5}{section.8}\protected@file@percent }
+\bibdata{../refs}
+\bibcite{brohan2023rt2}{{1}{2023}{{Brohan et~al.}}{{Brohan, Brown, Carbajal, Chebotar, Chen, et~al.}}}
+\bibcite{kim2024openvla}{{2}{2024}{{Kim et~al.}}{{Kim, Pertsch, Karamcheti, Xiao, Balakrishna, Nair, Rafailov, Foster, Lam, Sanketi, Vuong, Kollar, Burchfiel, Tedrake, Sadigh, Levine, Liang, and Finn}}}
+\bibcite{black2024pi0}{{3}{2024}{{Black et~al.}}{{Black, Brown, Driess, Esmail, Equi, et~al.}}}
+\bibcite{fei2025liberoplus}{{4}{2025}{{Fei et~al.}}{{Fei, Wang, Shi, Dai, Cai, Qian, Ji, He, Zhang, Fei, Fu, Gong, and Qiu}}}
+\bibcite{liu2023libero}{{5}{2023}{{Liu et~al.}}{{Liu, Zhu, Gao, Feng, Liu, Zhu, and Stone}}}
+\bibcite{cen2025rynnvla002}{{6}{2025}{{Cen et~al.}}{{Cen, Huang, Yuan, Li, Yuan, Yu, Hou, Jiang, Guo, Li, Luo, Wang, Zhao, and Chen}}}
+\bibcite{kwok2025robomonkey}{{7}{2025}{{Kwok et~al.}}{{Kwok, Agia, Sinha, Foutter, Li, Stoica, Mirhoseini, and Pavone}}}
+\bibcite{nakamoto2024vgps}{{8}{2024}{{Nakamoto et~al.}}{{Nakamoto, Mees, Kumar, and Levine}}}
+\bibcite{cen2025worldvla}{{9}{2025}{{Cen et~al.}}{{Cen, Yu, Yuan, Jiang, Huang, Guo, Li, Song, Luo, Wang, Zhao, and Chen}}}
+\bibcite{hafner2018planet}{{10}{2018}{{Hafner et~al.}}{{Hafner, Lillicrap, Fischer, Villegas, Ha, Lee, and Davidson}}}
+\bibcite{hansen2023tdmpc2}{{11}{2023}{{Hansen et~al.}}{{Hansen, Su, and Wang}}}
+\bibcite{zhou2024dinowm}{{12}{2024}{{Zhou et~al.}}{{Zhou, Pan, LeCun, and Pinto}}}
+\bibcite{smith2006optimizer}{{13}{2006}{{Smith and Winkler}}{{}}}
+\bibcite{hafner2023dreamerv3}{{14}{2023}{{Hafner et~al.}}{{Hafner, Pasukonis, Ba, and Lillicrap}}}
+\bibcite{ross2011dagger}{{15}{2011}{{Ross et~al.}}{{Ross, Gordon, and Bagnell}}}
+\bibcite{chameleon2024}{{16}{2024}{{Chameleon Team}}{{}}}
+\@writefile{toc}{\contentsline {paragraph}{Use of AI assistance.}{6}{section*.12}\protected@file@percent }
+\bibcite{lipman2022flow}{{17}{2022}{{Lipman et~al.}}{{Lipman, Chen, Ben-Hamu, Nickel, and Le}}}
+\bibcite{liu2022rectified}{{18}{2022}{{Liu et~al.}}{{Liu, Gong, and Liu}}}
+\bibcite{assran2023ijepa}{{19}{2023}{{Assran et~al.}}{{Assran, Duval, Misra, Bojanowski, Vincent, Rabbat, LeCun, and Ballas}}}
+\gdef \@abspage@last{7}
