@@ -13,6 +13,11 @@ DATA=$W/data/branches_goal
 CK=$RV/ckpts/RynnVLA-002/VLA_model_256/libero_goal
 TOK=$RV/ckpts/lumina_tokenizer
 mkdir -p $OUT/logs $DATA
+# a re-run keeps finished episodes (ep*.npz) but starts fresh logs, so old errors are not counted again
+OLD=$DATA/old_logs_$(date +%m%d%H%M)
+if ls $DATA/log_shard*.jsonl > /dev/null 2>&1; then mkdir -p $OLD && mv $DATA/log_shard*.jsonl $OLD/; fi
+[ -f $OUT/summary.txt ] && mv $OUT/summary.txt $OUT/summary_prev.txt
+rm -f $OUT/DONE
 cd $RV/exps_lis
 source $RV/exps_lis/runpod/pod_env.sh vanilla >/dev/null
 
