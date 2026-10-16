@@ -1,0 +1,18 @@
+\begin{table*}[t]
+\centering
+\caption{Test-time selection among 16 candidate chunks versus System~1 alone, on the same 100 LIBERO-Plus Goal episodes with perturbed robot initial states (System~1: 50/100). Override: share of control steps at which a non-System-1 chunk was executed. Wins: episodes solved only by the variant / only by System~1. CI: paired bootstrap; $p$: exact McNemar test.}
+\label{tab:selection}
+\small
+\begin{tabular}{lrrrlrr}
+\toprule
+Selection rule & Override (\%) & Success & $\Delta$ (pts) & 95\% CI & Wins & $p$ \\
+\midrule
+System~1 only & 0.0 & 50 & -- & -- & -- & -- \\
+Language-similarity scorer, argmax over 16 & 71.8 & 37 & -13 & [-24, -1] & 11/24 & 0.04 \\
+Language scorer + z-score gate (p90) & 7.9 & 44 & -6 & [-13, +1] & 3/9 & 0.15 \\
+Language scorer + gate (p75) + S1 prior & 0.2 & 50 & +0 & [+0, +0] & 0/0 & 1.00 \\
+Outcome-trained value of imagined latent, margin 0.05 & 3.4 & 49 & -1 & [-5, +3] & 2/3 & 1.00 \\
+Outcome-trained Q(z, ctx, g, A), margin 0.05 & 44.1 & 22 & -28 & [-39, -17] & 5/33 & 4.3e-06 \\
+\bottomrule
+\end{tabular}
+\end{table*}

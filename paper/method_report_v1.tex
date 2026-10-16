@@ -1,0 +1,289 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,backgrounds}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+
+\definecolor{seriesA}{HTML}{2A78D6}
+\definecolor{seriesB}{HTML}{EB6834}
+\definecolor{inkmuted}{HTML}{52514E}
+\definecolor{sysone}{HTML}{E8F1FB}
+\definecolor{systwo}{HTML}{FDEEE7}
+
+\newcommand{\zt}{\bm{z}_t}
+\newcommand{\zhat}{\hat{\bm{z}}_{t+k}}
+\newcommand{\A}{\mathbf{A}}
+\newcommand{\WM}{\mathcal{W}}
+
+\title{\textbf{LIS-VLA: Latent Imagination Search for Vision-Language-Action Models}\\[4pt]
+\large Method and Implementation Report}
+\author{Yike Wang\\
+University of Wollongong\\
+\texttt{yw061@uowmail.edu.au}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Vision-language-action (VLA) models usually map an observation and an instruction to an action in a single forward pass, committing to one sample without checking where it leads. We describe \emph{LIS-VLA} (Latent Imagination Search VLA), which turns this feed-forward mapping into an internal propose--imagine--evaluate loop that runs entirely in a learned latent space. From one forward pass of a unified VLA backbone, a flow-matching proposer draws $N$ candidate action chunks; a latent world model predicts the latent state each chunk leads to; a language-guided evaluator scores every imagined future against the instruction; and the highest-scoring chunk, minus a smoothness cost, is executed. No pixels are generated during search and the backbone is not re-run per candidate. All System-2 components are trained from demonstrations only, using a JEPA-style latent prediction target, contrastive language grounding, and ranking against counterfactual chunks. We instantiate LIS-VLA on RynnVLA-002, keeping its checkpoints loadable, and release the implementation. This report documents the formulation, the integration details, and verification of the implementation, including a controlled toy experiment in which imagination search selects chunks with the instructed effect from uniformly random candidates well above chance. \textbf{We do not yet report robot-benchmark results}; the evaluation protocol for LIBERO is specified and left to a future version of this report.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Vision-language-action models such as RT-2~\citep{brohan2023rt2}, OpenVLA~\citep{kim2024openvla} and $\pi_0$~\citep{black2024pi0} have made it practical to drive manipulators from images and free-form instructions. Architecturally, most of them are reactive: perception and language are encoded once and an action (or action chunk~\citep{zhao2023act}) is decoded once. When the decoded action is subtly wrong---a grasp that is a few centimetres off, a push in the wrong direction---nothing in the forward pass notices.
+
+Two lines of work suggest ways around this. First, world models learned for control, from PlaNet~\citep{hafner2018planet} and DreamerV3~\citep{hafner2023dreamerv3} to TD-MPC2~\citep{hansen2023tdmpc2}, DINO-WM~\citep{zhou2024dinowm} and V-JEPA~2~\citep{assran2025vjepa2}, show that planning by \emph{imagining} the consequences of candidate actions in a learned latent space is effective and much cheaper than predicting pixels. Second, test-time sampling and verification for VLAs, e.g.\ RoboMonkey~\citep{kwok2025robomonkey} and value-guided steering~\citep{nakamoto2024vgps}, shows that re-ranking several sampled actions with a learned scorer improves a fixed policy. Meanwhile, unified models such as WorldVLA~\citep{cen2025worldvla} and RynnVLA-002~\citep{cen2025rynnvla002} already train one autoregressive backbone both to act and to predict future frames, and report that the two abilities enhance each other. In RynnVLA-002's released evaluation code, however, actions are produced by the action head alone; the world model is not consulted when choosing an action. Its predictions are also made in image-token space, which would be too slow to run for many candidates per control step.
+
+LIS-VLA combines these ideas in a unified VLA. In the spirit of the fast/slow distinction of~\citet{kahneman2011thinking}, the original action head of the backbone acts as a fast \emph{System~1}, and we add a lightweight \emph{System~2} that searches over candidate action chunks by imagination (\cref{fig:arch}). Concretely, our contributions are:
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item A formulation of action selection as language-conditioned search in latent space,
+  \begin{equation*}
+  \A^*_t = \arg\max_{\A}\; \mathrm{Sim}\big(\phi(\zhat),\psi(g)\big) - \mathrm{Cost}(\A),
+  \end{equation*}
+  where $\zhat$ is predicted by a latent world model from the current latent state and a candidate chunk (\cref{sec:method}).
+  \item An instantiation on RynnVLA-002 in which all System-2 modules read from \emph{one} backbone forward pass, add about 50M parameters to a 7B model, and leave released checkpoints loadable (\cref{sec:impl}).
+  \item A set of training objectives that need only demonstrations: flow matching for the proposer, a stop-gradient latent prediction target with anti-collapse terms for the world model, and contrastive, progress and counterfactual-ranking losses for the evaluator, together with a data format in which a single token sequence supervises all of them (\cref{sec:training}).
+  \item An open-source implementation with unit tests and a controlled toy experiment that verifies the search mechanism end to end (\cref{sec:verification}), plus a concrete LIBERO~\citep{liu2023libero} evaluation protocol (\cref{sec:protocol}).
+\end{enumerate}
+This document is deliberately scoped as a method and implementation report: the large-scale experiments needed to establish whether latent imagination search improves task success have not yet been run, and we make no claims about robot performance.
+
+\begin{figure}[t]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw, rounded corners=3pt, align=center, inner sep=4pt, fill=white, text width=#1},
+  box/.default=2.6cm,
+  arr/.style={-{Stealth[length=2.2mm]}, thick},
+  lbl/.style={font=\footnotesize, inkmuted, fill=white, inner sep=1pt}
+]
+\node[box=2.6cm] (obs)   at (0, 1.5)   {Observation $I_t$\\(third-person, wrist)\\and state $s_t$};
+\node[box=2.6cm] (instr) at (0,-1.3)   {Instruction $g$};
+\node[box=2.3cm, minimum height=4.8cm] (bb) at (3.6,0.4) {Unified VLA\\backbone\\(RynnVLA-002)\\[4pt]\emph{one forward\\pass}};
+\node[box=2.9cm, fill=sysone] (s1)  at (7.4, 2.2) {System 1 action head\\$\A^{\mathrm{S1}}$, features $\bm u_t$};
+\node[box=2.9cm] (enc) at (7.4,-1.3) {Encoders\\$\bm z_t$, $\bm c_t$, $\bm g$};
+\node[box=4.0cm, fill=systwo] (prop) at (12.6, 2.2)  {Proposer (flow matching)\\$\A^1{=}\A^{\mathrm{S1}},\ \A^2,\dots,\A^N$};
+\node[box=4.0cm, fill=systwo] (wm)   at (12.6, 0)    {Latent world model\\$\hat{\bm z}^i_{t+k}=\WM(\bm z_t,\bm c_t,\A^i)$};
+\node[box=4.0cm, fill=systwo] (ev)   at (12.6,-2.2)  {Language-guided\\evaluator\\$R^i=\cos\big(\phi(\hat{\bm z}^i_{t+k}),\psi(\bm g)\big)$};
+\node[box=3.9cm] (sel) at (17.4, 0) {Select\\$\arg\max_i\, R^i-\mathrm{Cost}(\A^i)$};
+\node[box=1.4cm] (rob) at (20.8, 0) {Execute\\$\A^*_t$};
+
+\draw[arr] (obs.east) -- (obs.east -| bb.west);
+\draw[arr] (instr.east) -- (instr.east -| bb.west);
+\draw[arr] (bb.east |- s1.west) -- (s1.west);
+\draw[arr] (bb.east |- enc.west) -- (enc.west);
+\draw[arr] (s1.east) -- (prop.west);
+\draw[arr] (prop.south) -- node[lbl, right=1pt]{$N$ chunks} (wm.north);
+\draw[arr] ([yshift=2mm]enc.east) -- ++(1.6,0) |- node[lbl, pos=0.3, left=2pt]{$\bm z_t,\bm c_t$} (wm.west);
+\draw[arr] ([yshift=-2mm]enc.east) -- ++(0.8,0) |- node[lbl, pos=0.3, left=2pt]{$\bm g$} (ev.west);
+\draw[arr] (wm.south) -- (ev.north);
+\draw[arr] (ev.east) -| (sel.south);
+\draw[arr] (sel.east) -- (rob.west);
+
+\begin{scope}[on background layer]
+\node[draw=seriesB!70, dashed, rounded corners=5pt, fit=(prop)(wm)(ev)(sel), inner sep=3mm,
+      label={[font=\footnotesize, inkmuted, anchor=south]north:System 2: search and imagination in latent space}] {};
+\end{scope}
+\end{tikzpicture}}
+\caption{LIS-VLA. A single backbone pass feeds the original action head (System~1) and the System-2 encoders. The proposer samples $N$ chunks (the first candidate is the System-1 chunk), the latent world model imagines the state each leads to, the evaluator scores the imagined futures against the instruction, and the best chunk is executed. Search never generates pixels or re-runs the backbone.}
+\label{fig:arch}
+\end{figure}
+
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Vision-language-action models.}
+RT-2~\citep{brohan2023rt2} and OpenVLA~\citep{kim2024openvla} discretise actions into language-model tokens; $\pi_0$~\citep{black2024pi0} attaches a flow-matching action expert, and Diffusion Policy~\citep{chi2023diffusionpolicy} and ACT~\citep{zhao2023act} popularised generative heads and action chunking. These models are generative and can be sampled, but are deployed as single-shot policies. LIS-VLA keeps such a policy as System~1 and uses a generative proposer only to supply candidates for search.
+
+\paragraph{World models inside VLAs.}
+UniPi~\citep{du2023unipi} plans by generating a video and inferring actions from it. WorldVLA~\citep{cen2025worldvla} and RynnVLA-002~\citep{cen2025rynnvla002} train a single autoregressive model, built on a Chameleon-style~\citep{chameleon2024} early-fusion backbone, both as a policy and as an action-conditioned image predictor, and report that the two objectives help each other. We build directly on RynnVLA-002 but use a separate, small \emph{latent} dynamics head for inference-time search, because predicting hundreds of image tokens per candidate is incompatible with evaluating many candidates per control step.
+
+\paragraph{Latent world models and planning.}
+PlaNet~\citep{hafner2018planet} introduced planning with the cross-entropy method~\citep{rubinstein2004cem} in a learned latent space; DreamerV3~\citep{hafner2023dreamerv3} and TD-MPC2~\citep{hansen2023tdmpc2} scaled latent models for control. DINO-WM~\citep{zhou2024dinowm} and V-JEPA~2~\citep{assran2025vjepa2} plan zero-shot towards goal \emph{images} with dynamics learned on top of self-supervised visual features; our latent target follows the joint-embedding predictive idea of I-JEPA~\citep{assran2023ijepa}. LIS-VLA differs in that the goal is a \emph{language instruction}, the latent space is derived from the VLA's own token embeddings, and the dynamics model shares its conditioning with the policy.
+
+\paragraph{Test-time sampling and verification for robot policies.}
+RoboMonkey~\citep{kwok2025robomonkey} samples actions from a VLA, perturbs and aggregates them into a proposal set, and selects one with a VLM-based verifier trained on synthetic data; V-GPS~\citep{nakamoto2024vgps} re-ranks samples of a generalist policy with a value function learned by offline RL. LIS-VLA also samples and selects, but its scorer evaluates the \emph{predicted consequence} of an action chunk, $f(\zhat, g)$, rather than the action itself, and the scorer is trained jointly with the world model from the same demonstrations.
+
+\section{Background: RynnVLA-002}
+\label{sec:background}
+
+RynnVLA-002~\citep{cen2025rynnvla002} serialises every modality into one token stream for a Chameleon-style autoregressive transformer (7B parameters in the released models, with the Lumina-mGPT~\citep{liu2024luminamgpt} image tokenizer). An image is a block of VQ tokens delimited by start/end markers; each 7-D action is normalised to $[-1,1]$, discretised into 256 bins and wrapped in action-start/end markers; the proprioceptive state is encoded analogously. A VLA training sample has the form
+\begin{equation*}
+\underbrace{\text{instruction}}_{g}\;\;\underbrace{\langle\text{state}\rangle}_{s_t}\;\;\underbrace{\langle\text{img}\rangle\times(h\cdot V)}_{\text{history } h,\ V \text{ views}}\;\;\underbrace{\langle\text{act}\rangle\times H}_{\text{chunk}}
+\end{equation*}
+and world-model samples ask the model to generate the next frame given images and an action. Besides next-token prediction, RynnVLA-002 has a continuous action head: $H\cdot 7$ learned query tokens are appended to the backbone's last-layer hidden states of the prompt, processed by a small transformer encoder (width 1024 for the 7B model), and regressed to the chunk $\A\in[-1,1]^{H\times 7}$ with an $L_1$ loss. Within a chunk, a custom attention mask prevents action blocks from attending to each other. At inference the prompt is extended by a single action-start token and one backbone pass yields the hidden states from which the head predicts the whole chunk. We call this deterministic chunk $\A^{\mathrm{S1}}$.
+
+\section{Method}
+\label{sec:method}
+
+\subsection{Overview}
+Given the backbone's last-layer hidden states $\bm h$ for the prompt (instruction, state and images up to time $t$), LIS-VLA computes
+\begin{align}
+\zt &= E_{\mathrm{obs}}(I_t), \qquad \bm c_t = E_{\mathrm{ctx}}(\bm h_{<a}), \qquad \bm g = E_{\mathrm{lang}}(\bm h_{\mathrm{instr}}), \label{eq:enc}\\
+\{\A^i\}_{i=1}^{N} &\sim p_\theta(\A \mid \bm u_t, \bm c_t), \qquad \A^1 := \A^{\mathrm{S1}}, \label{eq:prop}\\
+\hat{\bm z}^i_{t+k} &= \WM(\zt, \bm c_t, \A^i), \label{eq:wm}\\
+\A^*_t &= \arg\max_{i}\; \underbrace{\cos\!\big(\phi(\hat{\bm z}^i_{t+k}),\, \psi(\bm g)\big)}_{\mathrm{Sim}} - \mathrm{Cost}(\A^i), \label{eq:select}
+\end{align}
+where $\bm h_{<a}$ are the hidden states before the action-start token, $\bm h_{\mathrm{instr}}$ those of the instruction tokens, and $\bm u_t$ the action-query features of the System-1 head. The horizon $k$ equals the chunk length $H$, so one world-model call imagines the effect of one whole chunk. Because the world model is deterministic, the expectation over imagined futures in a stochastic formulation reduces to a single prediction.
+
+\subsection{Latent state, context and goal}
+\paragraph{Observation latents $\zt$.} We do not use the backbone's \emph{hidden} states at image positions as the latent state, because in a causal model they also encode everything that precedes them and, at future-frame positions during training, the actions themselves. Instead, $E_{\mathrm{obs}}$ reads the backbone's \emph{input embeddings} of the VQ tokens of the $V$ current views, adds learned within-view position and view embeddings, and pools them with $Q$ learned queries in a Perceiver-style~\citep{jaegle2021perceiver} cross-attention block followed by one self-attention layer, giving $\zt \in \mathbb{R}^{Q\times d}$ ($Q{=}16$, $d{=}512$). Since $\zt$ depends only on the observation, the same encoder applied to the real future frame yields the world-model target $\bm z_{t+k}$.
+
+\paragraph{Context and goal.} $E_{\mathrm{ctx}}$ and $E_{\mathrm{lang}}$ are attention poolers over the backbone hidden states, producing $K{=}8$ context tokens $\bm c_t$ and a single goal vector $\bm g$. Because the instruction precedes all images in the sequence, causal attention guarantees that $\bm g$ depends on the instruction only.
+
+\subsection{Proposer}
+The proposer is a rectified-flow~\citep{liu2022rectified,lipman2022flow} model over chunks. Its velocity network is a small transformer over $H$ action tokens and the context tokens $\bm c_t$; each action token is conditioned on the matching System-1 query features $\bm u_t$ and a time embedding. Sampling integrates $\dot{\bm x}=v_\theta(\bm x,\tau)$ from $\bm x_0\sim\mathcal N(0,\sigma^2 I)$ with 10 Euler steps for $N$ chains in parallel and clips to $[-1,1]$. Candidate \#1 is always $\A^{\mathrm{S1}}$, so with \cref{eq:select} the selected chunk can never score lower than the System-1 chunk under the model's own criterion.
+
+\subsection{Latent world model}
+$\WM$ is a transformer over the concatenation of $\zt$, $\bm c_t$ and $H$ embedded actions (with per-step position embeddings), whose outputs at the $Q$ latent positions are mapped back through a residual linear layer: $\zhat = \zt + W_o\,\mathrm{TF}([\zt;\bm c_t;\A])_{1:Q}$. $W_o$ is zero-initialised, so an untrained model predicts that nothing changes, which is a safe default for search.
+
+\subsection{Evaluator and cost}
+The evaluator pools $\zhat$ to one vector and computes $R = \cos(\phi(\zhat),\psi(\bm g))$ with two MLP heads $\phi,\psi$. The cost penalises jerky arm motion and, optionally, deviation from System~1:
+\begin{equation}
+\mathrm{Cost}(\A)=\frac{\lambda_s}{H-1}\sum_{i=1}^{H-1}\big\lVert \bm a^{\mathrm{arm}}_{i+1}-\bm a^{\mathrm{arm}}_{i}\big\rVert^2+\frac{\lambda_p}{H}\big\lVert \A-\A^{\mathrm{S1}}\big\rVert_F^2 ,
+\end{equation}
+where $\bm a^{\mathrm{arm}}$ excludes the gripper dimension (gripper commands are meant to switch). Defaults are $\lambda_s=0.05$, $\lambda_p=0$.
+
+\subsection{Search}
+\Cref{alg:search} summarises inference. All candidates are processed as one batch by the System-2 heads; optional cross-entropy-method (CEM) rounds~\citep{rubinstein2004cem,hafner2018planet} refit a diagonal Gaussian to the top-$n_e$ candidates and resample the rest, always retaining the elites.
+
+\begin{algorithm}[t]
+\caption{LIS-VLA action selection at time $t$}
+\label{alg:search}
+\begin{algorithmic}[1]
+\Require prompt tokens (instruction $g$, state, images), candidates $N$, CEM rounds $C$, elites $n_e$
+\State $\bm h \gets$ backbone hidden states for the prompt and the action-start token \Comment{one pass}
+\State $\A^{\mathrm{S1}}, \bm u_t \gets$ System-1 action head$(\bm h)$
+\State $\zt, \bm c_t, \bm g \gets E_{\mathrm{obs}}(\text{image tokens}),\ E_{\mathrm{ctx}}(\bm h_{<a}),\ E_{\mathrm{lang}}(\bm h_{\mathrm{instr}})$
+\State $\{\A^i\}_{i=1}^N \gets$ proposer samples; $\A^1 \gets \A^{\mathrm{S1}}$
+\For{$c = 0,\dots,C$}
+  \State $\hat{\bm z}^i \gets \WM(\zt,\bm c_t,\A^i)$ for all $i$ \Comment{batched}
+  \State $S^i \gets \cos(\phi(\hat{\bm z}^i),\psi(\bm g)) - \mathrm{Cost}(\A^i)$
+  \If{$c < C$}
+    \State $\mathcal E \gets$ top-$n_e$ candidates by $S$; $\mu,\sigma \gets$ mean, std of $\mathcal E$
+    \State $\{\A^i\} \gets \mathcal E \cup \{\mathrm{clip}(\mu+\sigma\odot\epsilon_j)\}_{j=1}^{N-n_e}$
+  \EndIf
+\EndFor
+\State \Return $\A^*_t = \A^{\arg\max_i S^i}$ \Comment{executed as a chunk}
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Training from demonstrations}
+\label{sec:training}
+
+\paragraph{Data.} We extend each VLA sample with the frames that are actually observed after the chunk has been executed:
+\begin{equation*}
+\text{instruction}\;\langle\text{state}\rangle\;\langle\text{img}\rangle\times(h\cdot V)\;\;\langle\text{act}\rangle\times H\;\;\underbrace{\langle\text{img}\rangle\times V}_{\text{frames at } t+H}.
+\end{equation*}
+One such sequence supervises the System-1 head, the proposer, the world model and the evaluator, and its next-token loss additionally trains the backbone to generate the frame at $t+H$, in the spirit of RynnVLA-002's action-world-model data. Samples whose trajectory ends before $t+H$ are dropped; plain VLA and world-model samples can be mixed in.
+
+\paragraph{Losses.} Let $\mathrm{sg}[\cdot]$ denote stop-gradient, $\bm z^+ = \mathrm{sg}[E_{\mathrm{obs}}(I_{t+H})]$ the latent of the real future, $\hat{\bm z}=\WM(\zt,\bm c_t,\A^{\mathrm{demo}})$ the predicted one, $\bar{\bm z}$ the mean over latent tokens, and $R(\bm z,\bm g)=\cos(\phi(\bm z),\psi(\bm g))$. In addition to RynnVLA-002's next-token and $L_1$ losses we minimise $\sum_j w_j\mathcal L_j$ with:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item $\mathcal L_{\mathrm{fm}} = \mathbb E\,\lVert v_\theta(\bm x_\tau,\tau)-(\A-\bm x_0)\rVert^2$ with $\bm x_\tau=(1-\tau)\bm x_0+\tau\A$ and logit-normal $\tau$~\citep{esser2024sd3} \hfill ($w{=}1.0$)
+  \item $\mathcal L_{\mathrm{wm}} = \frac1Q\sum_q \big(1-\cos(\hat{\bm z}_q,\bm z^+_q)\big)$, a JEPA-style~\citep{assran2023ijepa} latent target \hfill ($w{=}1.0$)
+  \item $\mathcal L_{\mathrm{nce}}$: InfoNCE~\citep{oord2018cpc} over the batch between $\bar{\hat{\bm z}}$ and $\bar{\bm z}^+$, so each prediction must identify its own future \hfill ($w{=}0.1$)
+  \item $\mathcal L_{\mathrm{var}}$: the VICReg~\citep{bardes2021vicreg} variance hinge on $\bar{\bm z}_t$ \hfill ($w{=}0.1$)
+  \item $\mathcal L_{\mathrm{lang}}$: multi-positive InfoNCE between $\phi(\bm z^+)$, $\phi(\mathrm{sg}[\hat{\bm z}])$ and all goals $\psi(\bm g_j)$ in the batch, with samples sharing an instruction treated as positives \hfill ($w{=}0.1$)
+  \item $\mathcal L_{\mathrm{prog}} = \mathrm{softplus}\big(\kappa\,[R(\mathrm{sg}[\zt],\bm g)-R(\bm z^+,\bm g)]\big)$: the reached state should match the instruction better than the current one \hfill ($w{=}0.05$)
+  \item $\mathcal L_{\mathrm{rank}} = \mathbb E_{\tilde\A}\,\mathrm{softplus}\big(\kappa\,[R(\WM(\zt,\bm c_t,\tilde\A),\bm g)-R(\mathrm{sg}[\hat{\bm z}],\bm g)]\big)$, where the counterfactual chunks $\tilde\A$ are the demonstration chunk with Gaussian noise ($\sigma{=}0.3$), reversed in time, or taken from another sample in the batch \hfill ($w{=}0.1$)
+\end{itemize}
+$\kappa$ is the evaluator's learned inverse temperature. $\mathcal L_{\mathrm{rank}}$ updates only the evaluator (and goal encoder): the world model is trained exclusively by prediction losses, so it cannot reduce the ranking loss by distorting its predictions. The two InfoNCE terms and the variance term prevent the trivial solution in which $E_{\mathrm{obs}}$ maps all observations to a constant. By default the System-2 losses do not back-propagate into the backbone.
+
+\section{Implementation}
+\label{sec:impl}
+
+\paragraph{Integration.} LIS-VLA subclasses RynnVLA-002's model, keeps its training loop unchanged (the new losses are returned through the model's auxiliary-loss dictionary), and adds training and LIBERO evaluation entry points, a data generator for the format above and shell scripts for all four LIBERO suites. Three training scopes are exposed: \texttt{lis\_only} (backbone and action head frozen; the cheapest way to add System~2 to a released checkpoint), \texttt{lis\_and\_head}, and \texttt{all}.
+
+\paragraph{Two corrections.} (i) \emph{Attention mask.} RynnVLA-002 decides whether action blocks may attend to each other by comparing them with the position of the \emph{last} image in the sequence. In our training sequences future frames follow the chunk, so this rule would let the chunk's action blocks see each other during training but not at inference. We use the last image \emph{before the first action block} instead; for all of RynnVLA-002's own sample layouts and for inference prompts the resulting mask is identical to the original (checked by a unit test). (ii) \emph{Padding in the action head.} The original head lets action queries attend to zero padding when prompts in a batch have different lengths; we mask padded positions. Parameter names and shapes are unchanged, so released checkpoints load directly, and for batch size one the head is numerically identical to the original (checked by a unit test).
+
+\paragraph{Size.} \Cref{tab:params} lists the System-2 parameter count at the dimensions of the 7B backbone: about 50M parameters, roughly 0.7\% of the backbone. Search adds no backbone passes and generates no image tokens.
+
+\begin{table}[t]
+\centering
+\caption{System-2 parameters at 7B-backbone dimensions (hidden size 4096, action-head width 1024, $H{=}5$, latent width $d{=}512$).}
+\label{tab:params}
+\small
+\begin{tabular}{lr}
+\toprule
+Module & Parameters (M) \\
+\midrule
+Observation encoder $E_{\mathrm{obs}}$ & 9.0 \\
+Context encoder $E_{\mathrm{ctx}}$ & 5.3 \\
+Goal encoder $E_{\mathrm{lang}}$ & 5.3 \\
+Flow-matching proposer & 13.7 \\
+Latent world model $\WM$ & 12.9 \\
+Evaluator ($\phi,\psi$) & 3.9 \\
+\midrule
+Total & 50.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Verification}
+\label{sec:verification}
+
+Because robot-scale experiments are not yet available, we verify (a) that the implementation is correct and compatible with RynnVLA-002 and (b) that the search mechanism behaves as intended in a controlled setting. Neither says anything about manipulation performance.
+
+\paragraph{Unit tests.} With a tiny Chameleon configuration (2 layers, width 64) and the exact RynnVLA-002 token layout, seven tests check: sequence parsing; equality of our attention mask with the original on VLA samples and inference prompts, and the corrected masking on LIS samples; that a training step yields finite values for all seven System-2 losses and non-zero gradients in every System-2 module; that the proposer, world-model and language losses decrease when the System-2 heads are optimised; end-to-end \texttt{generate} with search, with CEM and with search disabled; state-dict compatibility and numerical equality of the action head with the original; and loading a checkpoint that lacks System-2 weights. All tests pass with the library versions pinned by RynnVLA-002 (PyTorch 2.2.0, Transformers 4.43.0).
+
+\paragraph{Controlled toy experiment.}
+We construct synthetic sequences in the RynnVLA-002 format whose dynamics are known. Four instructions are split into two goals, ``marker A'' and ``marker B''. Images are random VQ tokens; the frame after a chunk equals the current frame with the first six tokens of each view replaced by marker~A if the mean of action dimension~0 over the chunk is positive and by marker~B otherwise. Demonstrations always move towards the instructed marker; the other action dimensions are random. Only the System-2 heads are trained (the tiny backbone is random and frozen, i.e.\ the \texttt{lis\_only} scope), on 256 training sequences for 400 steps with batch size 16. We evaluate on 200 held-out sequences with new random images and report (i) the cosine similarity between predicted and true future latents, against the baseline of copying $\zt$; (ii) \emph{action sensitivity}: how often the prediction from the demonstration chunk is closer to the true future than the prediction from the same chunk with dimension~0 negated; and (iii) \emph{search accuracy}: we draw $N$ chunks \emph{uniformly at random} (no proposer, no System-1 candidate, no cost), select by $\arg\max_i R^i$, and count how often the selected chunk produces the instructed marker. Each random candidate is correct with probability $0.5$, so this isolates the world model and evaluator.
+
+\input{generated/toy_results.tex}
+
+\paragraph{Latency.}
+\input{generated/latency.tex}
+
+\section{Planned Evaluation on LIBERO}
+\label{sec:protocol}
+
+The next version of this report will evaluate on the four LIBERO suites~\citep{liu2023libero} (Spatial, Object, Goal, Long) with RynnVLA-002's released checkpoints and evaluation settings (two history frames, third-person and wrist views, state input, chunk length 5 for Goal/Object and 10 for Spatial/Long, 50 episodes per task). The planned comparisons, each on the same checkpoint where possible, are:
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item System~1 only vs.\ LIS-VLA, with $N\in\{4,8,16,32\}$ and with/without CEM; success rate and wall-clock control latency on GPU;
+  \item evaluator ablations removing $\mathcal L_{\mathrm{rank}}$, $\mathcal L_{\mathrm{prog}}$ or $\mathcal L_{\mathrm{lang}}$;
+  \item latent-space search vs.\ pixel-space search that scores frames generated by RynnVLA-002's own world model, at matched candidate budgets;
+  \item training scopes \texttt{lis\_only} vs.\ \texttt{all};
+  \item diagnostics from the search logs: how often the System-1 chunk is overridden, and the spread of scores among candidates.
+\end{enumerate}
+
+\section{Limitations}
+\label{sec:limitations}
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{No robot results.} Whether imagination search improves task success on LIBERO or real robots is untested. The toy experiment only shows that the mechanism can work when the dynamics are learnable and the goal is identifiable from the latent state.
+  \item \textbf{Demonstration-only evaluator.} The evaluator is trained from expert data and counterfactual perturbations of it. It therefore encodes a preference for futures that resemble expert progress, not a calibrated success probability, and may be unreliable for out-of-distribution candidates; search can exploit its errors.
+  \item \textbf{One-chunk, deterministic imagination.} The world model predicts a single latent outcome $H$ steps ahead and does not represent uncertainty or roll out multiple chunks.
+  \item \textbf{Latent space.} Latents are pooled from VQ-token embeddings, which may discard fine geometric detail that matters for contact-rich steps.
+  \item \textbf{Latency.} Search latency has only been measured on CPU.
+\end{itemize}
+
+\section{Conclusion}
+LIS-VLA adds a small, latent-space System~2 to a unified VLA: propose with flow matching, imagine with a latent world model, judge against the instruction, and act. It reuses a single backbone pass, trains from demonstrations only and remains compatible with RynnVLA-002 checkpoints. The implementation and a controlled sanity check are complete; establishing whether the approach improves manipulation is the subject of the planned evaluation.
+
+\section*{Code Availability}
+Code, training and evaluation scripts, and the toy experiment: \url{https://github.com/wangyk10086/LIS-VLA}.
+
+\section*{Acknowledgements}
+LIS-VLA builds on the code and models released by the authors of RynnVLA-002~\citep{cen2025rynnvla002}. The implementation and an initial draft of this report were prepared with the assistance of Claude (Anthropic), an AI system; the author reviewed the code and text and takes full responsibility for the content.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}

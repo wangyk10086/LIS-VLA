@@ -1,4 +1,4 @@
-\begin{thebibliography}{27}
+\begin{thebibliography}{18}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -12,19 +12,6 @@ Mahmoud Assran, Quentin Duval, Ishan Misra, Piotr Bojanowski, Pascal Vincent,
 \newblock Self-supervised learning from images with a joint-embedding
   predictive architecture.
 \newblock \emph{arXiv preprint arXiv:2301.08243}, 2023.
-
-\bibitem[Assran et~al.(2025)Assran, Bardes, Fan, Garrido, Howes,
-  et~al.]{assran2025vjepa2}
-Mido Assran, Adrien Bardes, David Fan, Quentin Garrido, Russell Howes, et~al.
-\newblock {V-JEPA} 2: Self-supervised video models enable understanding,
-  prediction and planning.
-\newblock \emph{arXiv preprint arXiv:2506.09985}, 2025.
-
-\bibitem[Bardes et~al.(2021)Bardes, Ponce, and LeCun]{bardes2021vicreg}
-Adrien Bardes, Jean Ponce, and Yann LeCun.
-\newblock {VICReg}: Variance-invariance-covariance regularization for
-  self-supervised learning.
-\newblock \emph{arXiv preprint arXiv:2105.04906}, 2021.
 
 \bibitem[Black et~al.(2024)Black, Brown, Driess, Esmail, Equi,
   et~al.]{black2024pi0}
@@ -60,27 +47,14 @@ Jun Cen, Chaohui Yu, Hangjie Yuan, Yuming Jiang, Siteng Huang, Jiayan Guo, Xin
 \newblock Chameleon: Mixed-modal early-fusion foundation models.
 \newblock \emph{arXiv preprint arXiv:2405.09818}, 2024.
 
-\bibitem[Chi et~al.(2023)Chi, Xu, Feng, Cousineau, Du, Burchfiel, Tedrake, and
-  Song]{chi2023diffusionpolicy}
-Cheng Chi, Zhenjia Xu, Siyuan Feng, Eric Cousineau, Yilun Du, Benjamin
-  Burchfiel, Russ Tedrake, and Shuran Song.
-\newblock Diffusion policy: Visuomotor policy learning via action diffusion.
-\newblock \emph{arXiv preprint arXiv:2303.04137}, 2023.
-
-\bibitem[Du et~al.(2023)Du, Yang, Dai, Dai, Nachum, Tenenbaum, Schuurmans, and
-  Abbeel]{du2023unipi}
-Yilun Du, Mengjiao Yang, Bo~Dai, Hanjun Dai, Ofir Nachum, Joshua~B. Tenenbaum,
-  Dale Schuurmans, and Pieter Abbeel.
-\newblock Learning universal policies via text-guided video generation.
-\newblock \emph{arXiv preprint arXiv:2302.00111}, 2023.
-
-\bibitem[Esser et~al.(2024)Esser, Kulal, Blattmann, Entezari, M{\"u}ller,
-  et~al.]{esser2024sd3}
-Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim Entezari, Jonas
-  M{\"u}ller, et~al.
-\newblock Scaling rectified flow transformers for high-resolution image
-  synthesis.
-\newblock \emph{arXiv preprint arXiv:2403.03206}, 2024.
+\bibitem[Fei et~al.(2025)Fei, Wang, Shi, Dai, Cai, Qian, Ji, He, Zhang, Fei,
+  Fu, Gong, and Qiu]{fei2025liberoplus}
+Senyu Fei, Siyin Wang, Junhao Shi, Zihao Dai, Jikun Cai, Pengfang Qian, Li~Ji,
+  Xinzhe He, Shiduo Zhang, Zhaoye Fei, Jinlan Fu, Jingjing Gong, and Xipeng
+  Qiu.
+\newblock {LIBERO-Plus}: In-depth robustness analysis of vision-language-action
+  models.
+\newblock \emph{arXiv preprint arXiv:2510.13626}, 2025.
 
 \bibitem[Hafner et~al.(2018)Hafner, Lillicrap, Fischer, Villegas, Ha, Lee, and
   Davidson]{hafner2018planet}
@@ -89,28 +63,10 @@ Danijar Hafner, Timothy Lillicrap, Ian Fischer, Ruben Villegas, David Ha,
 \newblock Learning latent dynamics for planning from pixels.
 \newblock \emph{arXiv preprint arXiv:1811.04551}, 2018.
 
-\bibitem[Hafner et~al.(2023)Hafner, Pasukonis, Ba, and
-  Lillicrap]{hafner2023dreamerv3}
-Danijar Hafner, Jurgis Pasukonis, Jimmy Ba, and Timothy Lillicrap.
-\newblock Mastering diverse domains through world models.
-\newblock \emph{arXiv preprint arXiv:2301.04104}, 2023.
-
 \bibitem[Hansen et~al.(2023)Hansen, Su, and Wang]{hansen2023tdmpc2}
 Nicklas Hansen, Hao Su, and Xiaolong Wang.
 \newblock {TD-MPC2}: Scalable, robust world models for continuous control.
 \newblock \emph{arXiv preprint arXiv:2310.16828}, 2023.
-
-\bibitem[Jaegle et~al.(2021)Jaegle, Gimeno, Brock, Zisserman, Vinyals, and
-  Carreira]{jaegle2021perceiver}
-Andrew Jaegle, Felix Gimeno, Andrew Brock, Andrew Zisserman, Oriol Vinyals, and
-  Joao Carreira.
-\newblock Perceiver: General perception with iterative attention.
-\newblock \emph{arXiv preprint arXiv:2103.03206}, 2021.
-
-\bibitem[Kahneman(2011)]{kahneman2011thinking}
-Daniel Kahneman.
-\newblock \emph{Thinking, Fast and Slow}.
-\newblock Farrar, Straus and Giroux, 2011.
 
 \bibitem[Kim et~al.(2024)Kim, Pertsch, Karamcheti, Xiao, Balakrishna, Nair,
   Rafailov, Foster, Lam, Sanketi, Vuong, Kollar, Burchfiel, Tedrake, Sadigh,
@@ -144,14 +100,6 @@ Bo~Liu, Yifeng Zhu, Chongkai Gao, Yihao Feng, Qiang Liu, Yuke Zhu, and Peter
   learning.
 \newblock \emph{arXiv preprint arXiv:2306.03310}, 2023.
 
-\bibitem[Liu et~al.(2024)Liu, Zhao, Zhuo, Lin, Xin, Li, Qin, Qiao, Li, and
-  Gao]{liu2024luminamgpt}
-Dongyang Liu, Shitian Zhao, Le~Zhuo, Weifeng Lin, Yi~Xin, Xinyue Li, Qi~Qin,
-  Yu~Qiao, Hongsheng Li, and Peng Gao.
-\newblock {Lumina-mGPT}: Illuminate flexible photorealistic text-to-image
-  generation with multimodal generative pretraining.
-\newblock \emph{arXiv preprint arXiv:2408.02657}, 2024.
-
 \bibitem[Liu et~al.(2022)Liu, Gong, and Liu]{liu2022rectified}
 Xingchao Liu, Chengyue Gong, and Qiang Liu.
 \newblock Flow straight and fast: Learning to generate and transfer data with
@@ -165,21 +113,18 @@ Mitsuhiko Nakamoto, Oier Mees, Aviral Kumar, and Sergey Levine.
   value guidance.
 \newblock \emph{arXiv preprint arXiv:2410.13816}, 2024.
 
-\bibitem[Rubinstein and Kroese(2004)]{rubinstein2004cem}
-Reuven~Y. Rubinstein and Dirk~P. Kroese.
-\newblock \emph{The Cross-Entropy Method: A Unified Approach to Combinatorial
-  Optimization, Monte-Carlo Simulation and Machine Learning}.
-\newblock Springer, 2004.
+\bibitem[Ross et~al.(2011)Ross, Gordon, and Bagnell]{ross2011dagger}
+St{\'e}phane Ross, Geoffrey Gordon, and Drew Bagnell.
+\newblock A reduction of imitation learning and structured prediction to
+  no-regret online learning.
+\newblock In \emph{Proceedings of the International Conference on Artificial
+  Intelligence and Statistics (AISTATS)}, 2011.
 
-\bibitem[van~den Oord et~al.(2018)van~den Oord, Li, and Vinyals]{oord2018cpc}
-Aaron van~den Oord, Yazhe Li, and Oriol Vinyals.
-\newblock Representation learning with contrastive predictive coding.
-\newblock \emph{arXiv preprint arXiv:1807.03748}, 2018.
-
-\bibitem[Zhao et~al.(2023)Zhao, Kumar, Levine, and Finn]{zhao2023act}
-Tony~Z. Zhao, Vikash Kumar, Sergey Levine, and Chelsea Finn.
-\newblock Learning fine-grained bimanual manipulation with low-cost hardware.
-\newblock \emph{arXiv preprint arXiv:2304.13705}, 2023.
+\bibitem[Smith and Winkler(2006)]{smith2006optimizer}
+James~E. Smith and Robert~L. Winkler.
+\newblock The optimizer's curse: Skepticism and postdecision surprise in
+  decision analysis.
+\newblock \emph{Management Science}, 52\penalty0 (3):\penalty0 311--321, 2006.
 
 \bibitem[Zhou et~al.(2024)Zhou, Pan, LeCun, and Pinto]{zhou2024dinowm}
 Gaoyue Zhou, Hengkai Pan, Yann LeCun, and Lerrel Pinto.

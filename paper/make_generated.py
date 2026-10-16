@@ -1,158 +1,187 @@
 """Turn experiment outputs in paper/data into LaTeX inputs in paper/generated.
-Every number in the toy-experiment and latency sections of the paper comes from here."""
-import csv
+Every result number in main.tex comes from here (nothing is typed into the .tex by hand).
+
+    python make_generated.py
+Inputs: data/phase0_summary.json, data/selection_runs.json, data/step3_summary.json (if present).
+"""
 import json
 import os
-import statistics as st
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA, GEN = os.path.join(HERE, "data"), os.path.join(HERE, "generated")
 os.makedirs(GEN, exist_ok=True)
+macros = []
 
 
-def ms(xs):
-    m = st.mean(xs)
-    s = st.stdev(xs) if len(xs) > 1 else 0.0
-    return m, s
+def mac(name, value):
+    macros.append(f"\\newcommand{{\\{name}}}{{{value}}}")
 
 
-def fmt(xs, pct=False):
-    m, s = ms(xs)
-    if pct:
-        return f"{100 * m:.1f} $\\pm$ {100 * s:.1f}"
-    return f"{m:.3f} $\\pm$ {s:.3f}"
+# ---------------- baselines (phase 0)
+p0 = json.load(open(os.path.join(DATA, "phase0_summary.json")))
+g = p0["goal_plus_s1"]
+mac("goalVanilla", f"{p0['goal_vanilla_s1']['standard']['rate']:.1f}")
+mac("longVanilla", f"{p0['long_vanilla_s1']['standard']['rate']:.1f}")
+mac("goalPlusAll", f"{g['ALL']['rate']:.1f}")
+mac("goalPlusN", g["ALL"]["n"])
+mac("goalPlusRobot", f"{g['Robot Initial States']['rate']:.1f}")
+mac("goalPlusLayout", f"{g['Objects Layout']['rate']:.1f}")
+mac("longPlusAll", f"{p0['long_plus_s1']['ALL']['rate']:.1f}")
+mac("longPlusRobot", f"{p0['long_plus_s1']['Robot Initial States']['rate']:.1f}")
 
-
-summ = json.load(open(os.path.join(DATA, "toy_summary.json")))
-seeds = [r["seed"] for r in summ]
-Ns = sorted(int(n) for n in summ[0]["after"]["search_acc"])
-
-
-def col(phase, key):
-    return [r[phase][key] for r in summ]
-
-
-# ---- search curve data
-with open(os.path.join(GEN, "search_curve.dat"), "w") as f:
-    f.write("N before before_sd after after_sd\n")
-    for n in Ns:
-        b = [r["before"]["search_acc"][str(n)] for r in summ]
-        a = [r["after"]["search_acc"][str(n)] for r in summ]
-        f.write(f"{n} {100*ms(b)[0]:.2f} {100*ms(b)[1]:.2f} {100*ms(a)[0]:.2f} {100*ms(a)[1]:.2f}\n")
-
-# ---- loss curves: mean over seeds, smoothed with a 20-step window, every 10th step
-loss_keys = ["lis_fm", "lis_wm", "lis_lang_nce", "lis_rank"]
-curves = []
-for s in seeds:
-    rows = list(csv.DictReader(open(os.path.join(DATA, f"toy_losses_seed{s}.csv"))))
-    curves.append(rows)
-n_steps = min(len(c) for c in curves)
-with open(os.path.join(GEN, "loss_curves.dat"), "w") as f:
-    f.write("step " + " ".join(loss_keys) + "\n")
-    for step in range(0, n_steps, 10):
-        lo, hi = max(0, step - 10), min(n_steps, step + 10)
-        vals = []
-        for k in loss_keys:
-            per_seed = [st.mean(float(c[i][k]) for i in range(lo, hi)) for c in curves]
-            vals.append(st.mean(per_seed))
-        f.write(f"{step} " + " ".join(f"{v:.4f}" for v in vals) + "\n")
-
-n_eval = 200
-search_row_after = " & ".join(fmt([r["after"]["search_acc"][str(n)] for r in summ], pct=True) for n in Ns)
-search_row_before = " & ".join(fmt([r["before"]["search_acc"][str(n)] for r in summ], pct=True) for n in Ns)
-
-tex = r"""
-\begin{table}[t]
+rows = []
+for job, label in [("goal_vanilla_s1", "LIBERO-Goal (standard)"), ("goal_plus_s1", "LIBERO-Plus Goal"),
+                   ("long_vanilla_s1", "LIBERO-10 (standard)"), ("long_plus_s1", "LIBERO-Plus 10")]:
+    for cat, r in p0[job].items():
+        name = label if cat in ("standard", "ALL") else f"\\quad {cat}"
+        rows.append(f"{name} & {r['n']} & {r['rate']:.1f} & [{r['ci95'].replace('-', ', ')}] \\\\")
+open(os.path.join(GEN, "tab_baseline.tex"), "w").write(r"""\begin{table}[t]
 \centering
-\caption{Controlled toy experiment on %d held-out sequences (mean $\pm$ s.d.\ over %d seeds). ``Before'' is the untrained System~2 (zero-initialised world model, i.e.\ identity dynamics); ``after'' is after training. Cosine similarities are computed between flattened latent sets; note that $E_{\mathrm{obs}}$ is itself trained, so the copy baseline changes too.}
-\label{tab:toy}
+\caption{System~1 (RynnVLA-002, released checkpoints) success rates. 95\% Wilson intervals.}
+\label{tab:baseline}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lrrl}
 \toprule
-Metric & Before & After \\
+Benchmark & Episodes & Success (\%) & 95\% CI \\
 \midrule
-$\cos(\hat{\bm z}_{t+H}, \bm z_{t+H})$ & %s & %s \\
-$\cos(\bm z_t, \bm z_{t+H})$ (copy baseline) & %s & %s \\
-Action sensitivity (\%%) & %s & %s \\
-Proposer samples with instructed effect (\%%) & %s & %s \\
+""" + "\n".join(rows) + r"""
 \bottomrule
 \end{tabular}
 \end{table}
-""" % (n_eval, len(seeds),
-       fmt(col("before", "cos_pred")), fmt(col("after", "cos_pred")),
-       fmt(col("before", "cos_copy")), fmt(col("after", "cos_copy")),
-       fmt(col("before", "wm_action_sensitive_acc"), True), fmt(col("after", "wm_action_sensitive_acc"), True),
-       fmt(col("before", "proposer_correct_frac"), True), fmt(col("after", "proposer_correct_frac"), True))
+""")
 
-tex += r"""
-\begin{figure}[t]
+# ---------------- selection runs (pilot, step 1, step 2)
+sel = json.load(open(os.path.join(DATA, "selection_runs.json")))
+rows = []
+for r in sel["runs"]:
+    p = f"{r['p']:.2g}" if r["p"] < 0.01 else f"{r['p']:.2f}"
+    rows.append(f"{r['label']} & {r['override']:.1f} & {r['new']} & {r['diff']:+.0f} & "
+                f"[{r['ci'][0]:+.0f}, {r['ci'][1]:+.0f}] & {r['new_wins']}/{r['base_wins']} & {p} \\\\")
+open(os.path.join(GEN, "tab_selection.tex"), "w").write(r"""\begin{table*}[t]
 \centering
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\begin{tikzpicture}
-\begin{axis}[width=\linewidth, height=5.2cm, xmode=log, log basis x=2, xtick={%s},
-  xticklabels={%s}, xlabel={Random candidates $N$}, ylabel={Selected chunk correct (\%%)},
-  ymin=30, ymax=105, ytick={40,60,80,100}, grid=major, grid style={draw=black!8}, axis line style={black!40},
-  tick style={black!40}, legend columns=3, legend style={at={(0.5,1.03)}, anchor=south, draw=none, font=\footnotesize, /tikz/every even column/.append style={column sep=6pt}},
-  label style={font=\small}, tick label style={font=\footnotesize}]
-\addplot[seriesA, line width=1.2pt, mark=*, mark size=2pt, error bars/.cd, y dir=both, y explicit]
-  table[x=N, y=after, y error=after_sd]{generated/search_curve.dat};
-\addlegendentry{trained}
-\addplot[seriesB, line width=1.2pt, mark=square*, mark size=2pt, error bars/.cd, y dir=both, y explicit]
-  table[x=N, y=before, y error=before_sd]{generated/search_curve.dat};
-\addlegendentry{untrained}
-\addplot[black!50, dashed, domain=1:32, samples=2] {50};
-\addlegendentry{chance}
-\end{axis}
-\end{tikzpicture}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.48\linewidth}
-\centering
-\begin{tikzpicture}
-\begin{groupplot}[group style={group size=2 by 2, horizontal sep=1.3cm, vertical sep=1.25cm},
-  width=0.58\linewidth, height=2.9cm, grid=major, grid style={draw=black!8}, axis line style={black!40},
-  tick style={black!40}, tick label style={font=\scriptsize}, title style={font=\footnotesize, yshift=-1ex},
-  xtick={0,200,400}, ymin=0, scaled y ticks=false, yticklabel style={/pgf/number format/fixed, /pgf/number format/precision=2}]
-\nextgroupplot[title={$\mathcal{L}_{\mathrm{fm}}$}]
-\addplot[seriesA, line width=1pt] table[x=step, y=lis_fm]{generated/loss_curves.dat};
-\nextgroupplot[title={$\mathcal{L}_{\mathrm{wm}}$}]
-\addplot[seriesA, line width=1pt] table[x=step, y=lis_wm]{generated/loss_curves.dat};
-\nextgroupplot[title={$\mathcal{L}_{\mathrm{lang}}$}, xlabel={\scriptsize step}]
-\addplot[seriesA, line width=1pt] table[x=step, y=lis_lang_nce]{generated/loss_curves.dat};
-\nextgroupplot[title={$\mathcal{L}_{\mathrm{rank}}$}, xlabel={\scriptsize step}]
-\addplot[seriesA, line width=1pt] table[x=step, y=lis_rank]{generated/loss_curves.dat};
-\end{groupplot}
-\end{tikzpicture}
-\end{minipage}
-\caption{Toy experiment. \emph{Left:} imagination search over $N$ uniformly random chunks; a chunk is correct if it produces the instructed marker (each random chunk is correct with probability 0.5). Error bars: s.d.\ over %d seeds, %d held-out sequences each. \emph{Right:} training losses (mean over seeds, 20-step moving average).}
-\label{fig:toy}
-\end{figure}
-""" % (",".join(map(str, Ns)), ",".join(map(str, Ns)), len(seeds), n_eval)
-
-after1 = ms([r["after"]["search_acc"][str(Ns[0])] for r in summ])[0]
-afterbest = max(Ns, key=lambda n: ms([r["after"]["search_acc"][str(n)] for r in summ])[0])
-afterbest_v = ms([r["after"]["search_acc"][str(afterbest)] for r in summ])[0]
-sens = ms(col("after", "wm_action_sensitive_acc"))[0]
-tex += r"""
-\Cref{tab:toy} and \cref{fig:toy} summarise the results. After training, the world model is action-sensitive in %.1f\%% of held-out cases, and selecting among random chunks with the evaluator's score raises the fraction of chunks with the instructed effect from %.1f\%% at $N{=}1$ (chance) to %.1f\%% at $N{=}%d$. The untrained System~2 stays near chance, as expected from its identity dynamics. The trained proposer alone also learns to produce the instructed effect, so in this toy task search is not \emph{needed}; the experiment is designed only to show that the world model and evaluator implement a working selection signal when the dynamics are learnable from the latent state.
-""" % (100 * sens, 100 * after1, 100 * afterbest_v, afterbest)
-
-open(os.path.join(GEN, "toy_results.tex"), "w").write(tex)
-
-# ---- latency
-lat = json.load(open(os.path.join(DATA, "latency.json")))
-cells = " & ".join(f"{r['N']}" + (f"+CEM{r['cem']}" if r["cem"] else "") for r in lat["rows"])
-vals = " & ".join(f"{r['median_ms']:.0f}" for r in lat["rows"])
-ltx = r"""Measured for the System-2 heads alone at 7B-backbone dimensions (%.1fM parameters) on %s with PyTorch %s; the backbone pass is shared with System~1 and excluded. Median of 5 runs, in milliseconds per control step:
-\begin{center}\small
-\begin{tabular}{l%s}
+\caption{Test-time selection among 16 candidate chunks versus System~1 alone, on the same 100 LIBERO-Plus Goal episodes with perturbed robot initial states (System~1: 50/100). Override: share of control steps at which a non-System-1 chunk was executed. Wins: episodes solved only by the variant / only by System~1. CI: paired bootstrap; $p$: exact McNemar test.}
+\label{tab:selection}
+\small
+\begin{tabular}{lrrrlrr}
 \toprule
-$N$ & %s \\
-ms & %s \\
+Selection rule & Override (\%) & Success & $\Delta$ (pts) & 95\% CI & Wins & $p$ \\
+\midrule
+System~1 only & 0.0 & 50 & -- & -- & -- & -- \\
+""" + "\n".join(rows) + r"""
 \bottomrule
 \end{tabular}
-\end{center}
-These CPU numbers only bound the cost of search from above; GPU latency, which is what matters for deployment, has not been measured.
-""" % (lat["params_M"], lat["device"].replace("_", r"\_"), lat["torch"].split("+")[0], "c" * len(lat["rows"]), cells, vals)
-open(os.path.join(GEN, "latency.tex"), "w").write(ltx)
-print("generated:", os.listdir(GEN))
+\end{table*}
+""")
+with open(os.path.join(GEN, "override_vs_delta.dat"), "w") as f:
+    f.write("override delta lo hi\n")
+    for r in sel["runs"]:
+        f.write(f"{r['override']} {r['diff']} {r['diff'] - r['ci'][0]} {r['ci'][1] - r['diff']}\n")
+byid = {r["id"]: r for r in sel["runs"]}
+mac("pilotDiff", f"{byid['pilot']['diff']:+.0f}")
+mac("pilotP", f"{byid['pilot']['p']:.3f}")
+mac("pilotOverride", f"{byid['pilot']['override']:.1f}")
+mac("directDiff", f"{byid['direct']['diff']:+.0f}")
+mac("directOverride", f"{byid['direct']['override']:.1f}")
+sc = sel["scorers"]
+mac("rollEpisodes", sc["rollouts"])
+mac("rollSuccess", f"{100 * sc['rollout_success']:.1f}")
+mac("rollSuccessClean", f"{100 * sc['rollout_success_sigma0']:.1f}")
+mac("rollExplored", f"{sc['explored_queries']:,}".replace(",", "{,}"))
+mac("rollQueries", f"{sc['queries']:,}".replace(",", "{,}"))
+for k in ("imag", "direct"):
+    K = k.capitalize()
+    mac(f"auc{K}", f"{sc[k]['val_auc_success']:.3f}")
+    mac(f"rank{K}", f"{100 * sc[k]['ranking_agrees_with_outcome']:.1f}")
+    mac(f"sOneRank{K}", f"{sc[k]['system1_rank_mean']:.1f}")
+mac("valEpisodes", sc["imag"]["episodes_val"])
+
+# ---------------- head-room by counterfactual branching (step 3)
+S3 = os.path.join(DATA, "step3_summary.json")
+pat = re.compile(r"(\d+)/(\d+) = ([\d.]+|nan)% \[([\d.]+|nan), ([\d.]+|nan)\]")
+
+
+def parse(s):
+    m = pat.match(s)
+    k, n, p, lo, hi = m.groups()
+    return int(k), int(n), p, lo, hi
+
+
+if os.path.exists(S3):
+    s3 = json.load(open(S3))
+    rows = []
+
+    def row(label, key, name=None):
+        k, n, p, lo, hi = parse(s3[key])
+        rows.append(f"{label} & {k}/{n} & {p} & [{lo}, {hi}] \\\\")
+        if name:
+            mac(name, p)
+            mac(name + "K", k)
+            mac(name + "N", n)
+            mac(name + "Hi", hi)
+
+    row("System~1 episode success", "system1_success", "sOneSucc")
+    row("System-1 branch reproduces the original outcome", "system1_branch_reproduces_main", "repro")
+    row("Failure branch points rescued by $\\geq$1 of 3 alternatives", "rescuable_points (>=1 of the alternatives succeeds)", "rescPts")
+    for pos in ("early", "middle", "late"):
+        if pos in s3["rescuable_by_position"]:
+            k, n, p, lo, hi = parse(s3["rescuable_by_position"][pos])
+            rows.append(f"\\quad {pos} branch point & {k}/{n} & {p} & [{lo}, {hi}] \\\\")
+    row("Failed episodes rescued at any branch point", "rescuable_failed_episodes (any point)", "rescEps")
+    row("Oracle episode success (System~1 + rescued)", "oracle_episode_success_upper_bound", "oracle")
+    gain = float(parse(s3["oracle_episode_success_upper_bound"])[2]) - float(parse(s3["system1_success"])[2])
+    mac("oracleGain", f"{gain:.1f}")
+    mac("altFail", f"{s3['random_alternative_success_rate_in_failed_states']:.1f}")
+    mac("altSucc", f"{s3['random_alternative_success_rate_in_successful_states']:.1f}")
+    mac("brEpisodes", s3["episodes"])
+    mac("brErrors", s3["errors"])
+    rows.append(f"Single alternative succeeds, from a failure state & & {s3['random_alternative_success_rate_in_failed_states']:.1f} & \\\\")
+    rows.append(f"Single alternative succeeds, from a success state & & {s3['random_alternative_success_rate_in_successful_states']:.1f} & \\\\")
+    open(os.path.join(GEN, "tab_headroom.tex"), "w").write(r"""\begin{table}[t]
+\centering
+\caption{Counterfactual branching on %d LIBERO-Goal training-task episodes with our own robot initial-state perturbations (disjoint from the LIBERO-Plus test variants). At each branch point the simulator is restored and one alternative chunk from the proposer is executed, after which System~1 continues to the end of the episode. 95\%% Wilson intervals.}
+\label{tab:headroom}
+\small
+\begin{tabular}{lrrl}
+\toprule
+Quantity & Count & \%% & 95\%% CI \\
+\midrule
+""" % s3["episodes"] + "\n".join(rows) + r"""
+\bottomrule
+\end{tabular}
+\end{table}
+""")
+    status = "final" if s3.get("_final") else "interim"
+    mac("headroomStatus", status)
+else:
+    open(os.path.join(GEN, "tab_headroom.tex"), "w").write("\\begin{center}\\textbf{[Head-room results pending]}\\end{center}\n")
+    for n in ("sOneSucc", "repro", "rescPts", "rescEps", "oracle", "oracleGain", "altFail", "altSucc", "brEpisodes",
+              "brErrors", "rescPtsHi", "rescPtsK", "rescPtsN", "rescEpsK", "rescEpsN", "sOneSuccK", "sOneSuccN",
+              "reproK", "reproN", "oracleK", "oracleN", "oracleHi", "sOneSuccHi", "reproHi", "rescEpsHi"):
+        mac(n, "\\textbf{??}")
+    mac("headroomStatus", "pending")
+
+open(os.path.join(GEN, "numbers.tex"), "w").write("\n".join(macros) + "\n")
+print("generated:", sorted(os.listdir(GEN)))
+
+# ---------------- offline evaluator diagnostic (appended; rewrites numbers.tex with these macros too)
+d = json.load(open(os.path.join(DATA, "evaluator_diag.json")))
+mac("diagN", d["samples"])
+mac("diagPairLow", f"{100 * d['pairwise_acc_gt_vs_noise']['0.05']:.1f}")
+mac("diagPairHigh", f"{100 * d['pairwise_acc_gt_vs_noise']['0.3']:.1f}")
+mac("diagSpearman", f"{d['spearman_score_vs_closeness']:.2f}")
+mac("diagCloser", f"{100 * d['argmax_closer_than_system1']:.1f}")
+mac("diagFarther", f"{100 * d['argmax_farther_than_system1']:.1f}")
+mac("diagMseRatio", f"{d['mse_argmax_vs_expert'] / d['mse_system1_vs_expert']:.1f}")
+mac("diagSOneRank", f"{d['system1_rank_mean']:.1f}")
+mac("gapPninety", f"{d['gap_z_percentiles_50_75_90_95'][2]:.2f}")
+mac("gapPseventyfive", f"{d['gap_z_percentiles_50_75_90_95'][1]:.2f}")
+open(os.path.join(GEN, "numbers.tex"), "w").write("\n".join(macros) + "\n")
+
+# ---------------- extrapolation used in the limitations (independence assumption, an optimistic bound)
+if os.path.exists(S3):
+    pa = s3["random_alternative_success_rate_in_failed_states"] / 100
+    mac("altIndepFifteen", f"{100 * (1 - (1 - pa) ** 15):.0f}")
+else:
+    mac("altIndepFifteen", "\\textbf{??}")
+open(os.path.join(GEN, "numbers.tex"), "w").write("\n".join(macros) + "\n")
