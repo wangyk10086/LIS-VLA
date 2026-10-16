@@ -19,9 +19,15 @@
 \input{generated/numbers.tex}
 
 \title{\textbf{Is There Anything to Search For?\\ A Counterfactual Head-Room Analysis of Test-Time Action Selection\\ for Robust Vision-Language-Action Models}}
+\ifdefined\anonymous
+\author{Anonymous Authors}
+\newcommand{\coderef}{the supplementary material (released upon publication)}
+\else
 \author{Yike Wang\\
 University of Wollongong\\
 \texttt{yw061@uowmail.edu.au}}
+\newcommand{\coderef}{\url{https://github.com/wangyk10086/LIS-VLA}}
+\fi
 \date{}
 
 \begin{document}
@@ -43,14 +49,23 @@ We set out to build exactly this and failed to make it work. Instead of only rep
   \item Diagnostics separating two failure modes of the scorers: an optimiser's-curse effect~\citep{smith2006optimizer} when overriding the policy on noisy scores, and outcome-trained scorers that learn the value of the \emph{state} rather than of the \emph{action} (\cref{sec:why}).
   \item A counterfactual branching protocol that measures the head-room of chunk-level selection directly by restoring simulator snapshots, and the finding that this head-room is small: an oracle upper bound only \oracleGain{} points above the policy (\cref{sec:headroom}).
 \end{enumerate}
-Code, scripts and all raw results are released at \url{https://github.com/wangyk10086/LIS-VLA}.
+Code, scripts and all raw results are available at \coderef.
+
+\section{Related work}
+\label{sec:related}
+
+\paragraph{Test-time selection for robot policies.} RoboMonkey~\citep{kwok2025robomonkey} samples and perturbs actions from a VLA and selects one with a learned VLM-based verifier; V-GPS~\citep{nakamoto2024vgps} re-ranks samples of a generalist policy with a value function trained by offline RL. Both report gains; we study the same recipe under robot initial-state perturbations, and add a direct measurement of how much any selector could gain.
+
+\paragraph{World models for action selection.} Latent-space planning with learned dynamics, from PlaNet~\citep{hafner2018planet} and DreamerV3~\citep{hafner2023dreamerv3} to TD-MPC2~\citep{hansen2023tdmpc2} and DINO-WM~\citep{zhou2024dinowm}, chooses actions by imagining their consequences. Unified VLAs such as WorldVLA~\citep{cen2025worldvla} and RynnVLA-002~\citep{cen2025rynnvla002} contain an action-conditioned world model, but in RynnVLA-002's released evaluation code actions come from the action head alone. Our search follows this idea in a small latent space attached to RynnVLA-002, with goals given by language rather than images or rewards.
+
+\paragraph{Why imitation policies fail.} Covariate shift---a policy trained on expert states drifting into states it cannot recover from---is the classic explanation for compounding errors in imitation learning~\citep{ross2011dagger}. Our branching results are consistent with this account for VLAs under initial-state perturbations, and suggest that it limits test-time selection as well.
 
 \section{Setup}
 \label{sec:setup}
 
 \paragraph{Policy (System~1).} RynnVLA-002~\citep{cen2025rynnvla002} is a 7B Chameleon-style~\citep{chameleon2024} autoregressive model trained both as a policy and as an action-conditioned image predictor. We use its released LIBERO-Goal checkpoint (256\,px, two history frames, third-person and wrist views, proprioceptive state, chunks of $H{=}5$ actions predicted by its continuous action head) unchanged, with its evaluation settings.
 
-\paragraph{Benchmark.} We evaluate on LIBERO-Plus~\citep{fei2025liberoplus} Goal. Selection experiments use a fixed set of 100 episodes from the ``Robot Initial States'' category (the first 200 variants of the category, shard 0 of 2); System~1 solves 50 of them. Every variant is compared with System~1 on exactly these episodes, with a paired bootstrap interval and an exact McNemar test. All data used to train scorers come from LIBERO \emph{training} tasks with our own random joint perturbations (Gaussian noise with a per-episode standard deviation of up to 0.3\,rad added to the arm joints); no LIBERO-Plus variant is ever used for training or tuning.
+\paragraph{Benchmark.} We evaluate on LIBERO-Plus~\citep{fei2025liberoplus} Goal. Selection experiments use a fixed set of 100 episodes from the ``Robot Initial States'' category (the first 200 variants of the category, shard 0 of 2); System~1 solves 50 of them. Every variant is compared with System~1 on exactly these episodes, with a paired bootstrap interval and an exact McNemar test. All data used to train scorers come from LIBERO \emph{training} tasks with our own random joint perturbations (Gaussian noise with a per-episode standard deviation of up to 0.3\,rad added to the arm joints); no LIBERO-Plus variant is ever used for training or tuning. The same 100 test episodes were, however, reused as we moved from one selection variant to the next; since no variant improved on System~1, this reuse cannot have inflated a positive result, but it means the numbers in \cref{tab:selection} are not from a single pre-registered comparison.
 
 \input{generated/tab_baseline.tex}
 
