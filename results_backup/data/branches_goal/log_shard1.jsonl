@@ -1,0 +1,33 @@
+{"id": 100003, "task": 3, "sigma": 0.239, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 647.7, "error": null}
+{"id": 100009, "task": 9, "sigma": 0.286, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 639.4, "error": null}
+{"id": 100011, "task": 1, "sigma": 0.216, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 639.1, "error": null}
+{"id": 100013, "task": 3, "sigma": 0.069, "main_success": false, "points": 3, "s1_branch_success": [true, true, false], "alt_success": [2, 1, 0], "seconds": 512.0, "error": null}
+{"id": 100019, "task": 9, "sigma": 0.2, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 659.6, "error": null}
+{"id": 100021, "task": 1, "sigma": 0.253, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 665.8, "error": null}
+{"id": 100023, "task": 3, "sigma": 0.284, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 640.2, "error": null}
+{"id": 100025, "task": 5, "sigma": 0.116, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 2, 0], "seconds": 582.3, "error": null}
+{"id": 100033, "task": 3, "sigma": 0.135, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 219.6, "error": null}
+{"id": 100037, "task": 7, "sigma": 0.256, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 626.4, "error": null}
+{"id": 100039, "task": 9, "sigma": 0.244, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 633.3, "error": null}
+{"id": 100041, "task": 1, "sigma": 0.214, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 642.2, "error": null}
+{"id": 100045, "task": 5, "sigma": 0.247, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 658.3, "error": null}
+{"id": 100053, "task": 3, "sigma": 0.098, "main_success": true, "points": 1, "s1_branch_success": [false], "alt_success": [2], "seconds": 307.7, "error": null}
+{"id": 100055, "task": 5, "sigma": 0.136, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 645.9, "error": null}
+{"id": 100059, "task": 9, "sigma": 0.205, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 636.6, "error": null}
+{"id": 100061, "task": 1, "sigma": 0.206, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 591.5, "error": null}
+{"id": 100063, "task": 3, "sigma": 0.141, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 557.4, "error": null}
+{"id": 100065, "task": 5, "sigma": 0.286, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 605.6, "error": null}
+{"id": 100069, "task": 9, "sigma": 0.079, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 641.3, "error": null}
+{"id": 100071, "task": 1, "sigma": 0.243, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 631.3, "error": null}
+{"id": 100073, "task": 3, "sigma": 0.064, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 241.1, "error": null}
+{"id": 100081, "task": 1, "sigma": 0.203, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 645.5, "error": null}
+{"id": 100083, "task": 3, "sigma": 0.216, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 633.6, "error": null}
+{"id": 100085, "task": 5, "sigma": 0.251, "main_success": false, "points": 3, "s1_branch_success": [true, false, false], "alt_success": [2, 0, 0], "seconds": 471.4, "error": null}
+{"id": 100089, "task": 9, "sigma": 0.074, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 584.8, "error": null}
+{"id": 100091, "task": 1, "sigma": 0.147, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 110.6, "error": null}
+{"id": 100093, "task": 3, "sigma": 0.168, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [1, 0, 0], "seconds": 576.4, "error": null}
+{"id": 100095, "task": 5, "sigma": 0.239, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 621.3, "error": null}
+{"id": 100097, "task": 7, "sigma": 0.288, "main_success": false, "points": 3, "s1_branch_success": [true, false, false], "alt_success": [2, 0, 0], "seconds": 459.1, "error": null}
+{"id": 100099, "task": 9, "sigma": 0.236, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [0, 0, 0], "seconds": 683.9, "error": null}
+{"id": 100103, "task": 3, "sigma": 0.058, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 239.6, "error": null}
+{"id": 100109, "task": 9, "sigma": 0.189, "main_success": false, "points": 3, "s1_branch_success": [false, false, false], "alt_success": [1, 0, 0], "seconds": 509.5, "error": null}

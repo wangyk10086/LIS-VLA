@@ -1,0 +1,24 @@
+{
+ "ckpt": "../ckpts/RynnVLA-002/VLA_model_256/libero_10",
+ "suite": "libero_10",
+ "benchmark": "plus",
+ "categories": [
+  "Objects Layout"
+ ],
+ "episodes_per_task": 50,
+ "max_per_category": 0,
+ "limit": 1,
+ "vanilla_root": "/workspace/third_party/LIBERO",
+ "shard": 0,
+ "num_shards": 1,
+ "out": "/workspace/results/phase0_smoke/layout_libero_10",
+ "time_horizon": 10,
+ "his": "his_2_third_view_wrist_w_state",
+ "resolution": 256,
+ "tokenizer_path": "../ckpts/lumina_tokenizer",
+ "search": 0,
+ "num_candidates": null,
+ "cem_iters": null,
+ "save_video": 0,
+ "device": "cuda:0"
+}

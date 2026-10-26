@@ -1,0 +1,21 @@
+{
+ "samples": 300,
+ "pairwise_acc_gt_vs_noise": {
+  "0.05": 0.914,
+  "0.1": 0.969,
+  "0.2": 0.991,
+  "0.3": 0.998
+ },
+ "spearman_score_vs_closeness": 0.063,
+ "argmax_closer_than_system1": 0.0,
+ "argmax_farther_than_system1": 0.763,
+ "mse_system1_vs_expert": 0.00352,
+ "mse_argmax_vs_expert": 0.01569,
+ "system1_rank_mean (0=best of N)": 4.87,
+ "gap_z_percentiles(50,75,90,95)": [
+  0.95,
+  1.83,
+  2.58,
+  2.89
+ ]
+}

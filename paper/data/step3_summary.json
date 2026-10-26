@@ -1,0 +1,11 @@
+{"_final": true, "_note": "Final: /workspace/results/step3/summary.txt (tools/branch_summary.py), written 2026-10-16 12:36 UTC after the fixed re-run; read from the pod 12:41 UTC",
+ "episodes": 115, "errors": 0,
+ "system1_success": "55/115 = 47.8% [38.9, 56.9]",
+ "system1_branch_reproduces_main": "216/235 = 91.9% [87.7, 94.8]",
+ "failed_eps_branch_points": 163,
+ "rescuable_points (>=1 of the alternatives succeeds)": "8/163 = 4.9% [2.5, 9.4]",
+ "rescuable_failed_episodes (any point)": "8/60 = 13.3% [6.9, 24.2]",
+ "random_alternative_success_rate_in_failed_states": 2.7,
+ "random_alternative_success_rate_in_successful_states": 93.1,
+ "rescuable_by_position": {"early": "5/47 = 10.6% [4.6, 22.6]", "late": "1/60 = 1.7% [0.3, 8.9]", "middle": "2/56 = 3.6% [1.0, 12.1]"},
+ "oracle_episode_success_upper_bound": "63/115 = 54.8% [45.7, 63.6]"}

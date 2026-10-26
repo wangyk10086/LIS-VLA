@@ -1,0 +1,10 @@
+| job | category | n | rate | ci95 | errors | query_s | override_rate | ep_s |
+|---|---|---|---|---|---|---|---|---|
+| goal_plus_s1 | ALL | 834 | 56.8 | 53.4-60.2 | 0 | 1.243 | 0.0 | 54.5 |
+| goal_plus_s1 | Objects Layout | 425 | 60.9 | 56.2-65.5 | 0 | 1.31 | 0.0 | 56.0 |
+| goal_plus_s1 | Robot Initial States | 409 | 52.6 | 47.7-57.4 | 0 | 1.173 | 0.0 | 53.0 |
+| goal_vanilla_s1 | standard | 100 | 98.0 | 93.0-99.4 | 0 | 1.125 | 0.0 | 28.3 |
+| long_plus_s1 | ALL | 705 | 58.9 | 55.2-62.4 | 0 | 1.143 | 0.0 | 53.0 |
+| long_plus_s1 | Objects Layout | 312 | 71.8 | 66.6-76.5 | 0 | 1.129 | 0.0 | 48.9 |
+| long_plus_s1 | Robot Initial States | 393 | 48.6 | 43.7-53.5 | 0 | 1.154 | 0.0 | 56.3 |
+| long_vanilla_s1 | standard | 100 | 94.0 | 87.5-97.2 | 0 | 1.066 | 0.0 | 34.7 |

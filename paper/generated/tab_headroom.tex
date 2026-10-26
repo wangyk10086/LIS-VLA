@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Counterfactual branching on 115 LIBERO-Goal training-task episodes with our own robot initial-state perturbations (disjoint from the LIBERO-Plus test variants). At each branch point the simulator is restored and one alternative chunk from the proposer is executed, after which System~1 continues to the end of the episode. 95\% Wilson intervals.}
+\label{tab:headroom}
+\small
+\begin{tabular}{lrrl}
+\toprule
+Quantity & Count & \% & 95\% CI \\
+\midrule
+System~1 episode success & 55/115 & 47.8 & [38.9, 56.9] \\
+System-1 branch reproduces the original outcome & 216/235 & 91.9 & [87.7, 94.8] \\
+Failure branch points rescued by $\geq$1 of 3 alternatives & 8/163 & 4.9 & [2.5, 9.4] \\
+\quad early branch point & 5/47 & 10.6 & [4.6, 22.6] \\
+\quad middle branch point & 2/56 & 3.6 & [1.0, 12.1] \\
+\quad late branch point & 1/60 & 1.7 & [0.3, 8.9] \\
+Failed episodes rescued at any branch point & 8/60 & 13.3 & [6.9, 24.2] \\
+Oracle episode success (System~1 + rescued) & 63/115 & 54.8 & [45.7, 63.6] \\
+Single alternative succeeds, from a failure state & & 2.7 & \\
+Single alternative succeeds, from a success state & & 93.1 & \\
+\bottomrule
+\end{tabular}
+\end{table}

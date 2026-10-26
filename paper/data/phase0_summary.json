@@ -1,0 +1,9 @@
+{"goal_plus_s1": {"ALL": {"n": 834, "success": 474, "rate": 56.8, "ci95": "53.4-60.2", "query_s": 1.243},
+  "Objects Layout": {"n": 425, "success": 259, "rate": 60.9, "ci95": "56.2-65.5"},
+  "Robot Initial States": {"n": 409, "success": 215, "rate": 52.6, "ci95": "47.7-57.4"}},
+ "goal_vanilla_s1": {"standard": {"n": 100, "success": 98, "rate": 98.0, "ci95": "93.0-99.4", "query_s": 1.125}},
+ "long_plus_s1": {"ALL": {"n": 705, "success": 415, "rate": 58.9, "ci95": "55.2-62.4"},
+  "Objects Layout": {"n": 312, "success": 224, "rate": 71.8, "ci95": "66.6-76.5"},
+  "Robot Initial States": {"n": 393, "success": 191, "rate": 48.6, "ci95": "43.7-53.5"}},
+ "long_vanilla_s1": {"standard": {"n": 100, "success": 94, "rate": 94.0, "ci95": "87.5-97.2"}},
+ "_source": "/workspace/results/phase0/summary.json on the RunPod volume, copied 2026-10-16"}

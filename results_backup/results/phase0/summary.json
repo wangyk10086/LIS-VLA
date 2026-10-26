@@ -1,0 +1,106 @@
+{
+ "goal_plus_s1": {
+  "ALL": {
+   "job": "goal_plus_s1",
+   "category": "ALL",
+   "n": 834,
+   "success": 474,
+   "rate": 56.8,
+   "ci95": "53.4-60.2",
+   "errors": 0,
+   "query_s": 1.243,
+   "override_rate": 0.0,
+   "ep_s": 54.5
+  },
+  "Objects Layout": {
+   "job": "goal_plus_s1",
+   "category": "Objects Layout",
+   "n": 425,
+   "success": 259,
+   "rate": 60.9,
+   "ci95": "56.2-65.5",
+   "errors": 0,
+   "query_s": 1.31,
+   "override_rate": 0.0,
+   "ep_s": 56.0
+  },
+  "Robot Initial States": {
+   "job": "goal_plus_s1",
+   "category": "Robot Initial States",
+   "n": 409,
+   "success": 215,
+   "rate": 52.6,
+   "ci95": "47.7-57.4",
+   "errors": 0,
+   "query_s": 1.173,
+   "override_rate": 0.0,
+   "ep_s": 53.0
+  }
+ },
+ "goal_vanilla_s1": {
+  "standard": {
+   "job": "goal_vanilla_s1",
+   "category": "standard",
+   "n": 100,
+   "success": 98,
+   "rate": 98.0,
+   "ci95": "93.0-99.4",
+   "errors": 0,
+   "query_s": 1.125,
+   "override_rate": 0.0,
+   "ep_s": 28.3
+  }
+ },
+ "long_plus_s1": {
+  "ALL": {
+   "job": "long_plus_s1",
+   "category": "ALL",
+   "n": 705,
+   "success": 415,
+   "rate": 58.9,
+   "ci95": "55.2-62.4",
+   "errors": 0,
+   "query_s": 1.143,
+   "override_rate": 0.0,
+   "ep_s": 53.0
+  },
+  "Objects Layout": {
+   "job": "long_plus_s1",
+   "category": "Objects Layout",
+   "n": 312,
+   "success": 224,
+   "rate": 71.8,
+   "ci95": "66.6-76.5",
+   "errors": 0,
+   "query_s": 1.129,
+   "override_rate": 0.0,
+   "ep_s": 48.9
+  },
+  "Robot Initial States": {
+   "job": "long_plus_s1",
+   "category": "Robot Initial States",
+   "n": 393,
+   "success": 191,
+   "rate": 48.6,
+   "ci95": "43.7-53.5",
+   "errors": 0,
+   "query_s": 1.154,
+   "override_rate": 0.0,
+   "ep_s": 56.3
+  }
+ },
+ "long_vanilla_s1": {
+  "standard": {
+   "job": "long_vanilla_s1",
+   "category": "standard",
+   "n": 100,
+   "success": 94,
+   "rate": 94.0,
+   "ci95": "87.5-97.2",
+   "errors": 0,
+   "query_s": 1.066,
+   "override_rate": 0.0,
+   "ep_s": 34.7
+  }
+ }
+}

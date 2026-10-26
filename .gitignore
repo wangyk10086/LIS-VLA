@@ -1,0 +1,33 @@
+# Python
+__pycache__
+*.pyc
+*.egg-info
+dist
+
+# ckpt
+rynnvla-002/ckpts/
+rynnvla-002/outputs/
+
+# data
+rynnvla-002/processed_data/
+
+# jupyter
+.ipynb_checkpoints
+
+
+# Other
+.DS_Store
+3rd_parties
+
+rynnvla-002/LIBERO-master/
+rynnvla-002/eval_outputs/
+rynnvla-002/ckpts/
+rynnvla-002/assets/.nfs*rynnvla-002/eval_outputs/
+.pytest_cache/
+paper/*.aux
+paper/*.log
+paper/*.blg
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
+paper/build.log

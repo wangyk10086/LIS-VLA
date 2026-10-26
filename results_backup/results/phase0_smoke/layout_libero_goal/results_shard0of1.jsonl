@@ -1,0 +1,1 @@
+{"task_index": 1887, "episode": 0, "category": "Objects Layout", "difficulty": 1, "task_name": "open_the_middle_drawer_of_the_cabinet_add_10", "instruction": "open the middle drawer of the cabinet", "success": true, "steps": 140, "seconds": 29.58, "queries": 27, "overrides": 0, "query_latency_mean": 0.8525, "error": null, "search": 0, "num_candidates": null}

@@ -1,0 +1,22 @@
+### step 3 (counterfactual branching) 2026-10-16 06:06 UTC
+episodes: 49
+errors: 71
+system1_success: 49/49 = 100.0% [92.7, 100.0]
+system1_branch_reproduces_main: 48/49 = 98.0% [89.3, 99.6]
+failed_eps_branch_points: 0
+rescuable_points (>=1 of the alternatives succeeds): 0/0 = nan% [nan, nan]
+rescuable_failed_episodes (any point): 0/0 = nan% [nan, nan]
+random_alternative_success_rate_in_failed_states: nan
+random_alternative_success_rate_in_successful_states: 92.4
+rescuable_by_position: {}
+oracle_episode_success_upper_bound: 49/49 = 100.0% [92.7, 100.0]
+first error: ValueError: executing action in terminated episode
+== error tails
+-- /workspace/results/step3/logs/branch_0.log
+{"id": 100114, "task": 4, "sigma": 0.157, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 119.4, "error": null}
+{"id": 100116, "task": 6, "sigma": 0.265, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [2], "seconds": 181.2, "error": null}
+{"id": 100118, "task": 8, "sigma": 0.237, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [2], "seconds": 176.0, "error": null}
+-- /workspace/results/step3/logs/branch_1.log
+    raise ValueError("executing action in terminated episode")
+ValueError: executing action in terminated episode
+{"id": 100119, "task": 9, "error": "ValueError: executing action in terminated episode", "seconds": 307.1}

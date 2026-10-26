@@ -1,0 +1,144 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+
+\definecolor{seriesA}{HTML}{2A78D6}
+\definecolor{inkmuted}{HTML}{52514E}
+\newcommand{\A}{\mathbf{A}}
+\input{generated/numbers.tex}
+
+\title{\textbf{Is There Anything to Search For?\\ A Counterfactual Head-Room Analysis of Test-Time Action Selection\\ for Robust Vision-Language-Action Models}}
+\ifdefined\anonymous
+\author{Anonymous Authors}
+\newcommand{\coderef}{the supplementary material (released upon publication)}
+\else
+\author{Yike Wang\\
+University of Wollongong\\
+\texttt{yw061@uowmail.edu.au}}
+\newcommand{\coderef}{\url{https://github.com/wangyk10086/LIS-VLA}}
+\fi
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Sampling several candidate actions from a robot policy and executing the one a learned scorer prefers is an increasingly popular way to make vision-language-action (VLA) models more robust without retraining them. We report a careful negative result for this recipe. On top of RynnVLA-002, a unified VLA that drops from \goalVanilla\% success on LIBERO-Goal to \goalPlusRobot\% when the robot's initial joint configuration is perturbed (LIBERO-Plus), we built a latent ``imagination'' search that proposes 16 action chunks, predicts the latent state each one leads to, and scores it. Across five scorers and selection rules---language similarity of imagined futures, two conservative gates, and two scorers trained on \rollEpisodes{} of our own outcome-labelled rollouts---no variant improved over the unmodified policy on the same 100 paired episodes, and the two that overrode the policy most often were significantly worse (\pilotDiff{} and \directDiff{} points). Diagnostics show why: scorers that reliably separate expert from noisy chunks still never preferred a proposal closer to the expert than the policy's own chunk, and outcome-trained scorers predict \emph{whether an episode will succeed} (AUC up to \aucDirect) but not \emph{which chunk to take}. We then ask whether any scorer could have helped. By restoring simulator snapshots and replaying alternative chunks from the same states, we measure the head-room of a single-chunk intervention directly: replacing one action chunk with any of three alternatives, after which the policy resumes control, rescues only \rescPts\% of failure states (\rescPtsK/\rescPtsN), an oracle episode-success upper bound only \oracleGain{} points above the policy. Under these perturbations, failures are rarely one alternative chunk away from success, and the policy usually fails again once it resumes control. Whether interventions spanning several consecutive decisions fare better is not bounded by this protocol, and we discuss what it would take to test it.
+\end{abstract}
+
+\section{Introduction}
+
+VLA models such as RT-2~\citep{brohan2023rt2}, OpenVLA~\citep{kim2024openvla} and $\pi_0$~\citep{black2024pi0} achieve near-saturated success on standard simulation benchmarks, but robustness studies show steep drops under modest changes to the scene or the robot. LIBERO-Plus~\citep{fei2025liberoplus}, for example, perturbs LIBERO~\citep{liu2023libero} along several axes; we find that the RynnVLA-002~\citep{cen2025rynnvla002} Goal policy falls from \goalVanilla\% to \goalPlusRobot\% when only the robot's initial state is changed (\cref{tab:baseline}).
+
+A natural, training-free remedy is \emph{test-time selection}: sample several candidate actions and let a verifier, value function or world model choose. RoboMonkey~\citep{kwok2025robomonkey} and V-GPS~\citep{nakamoto2024vgps} report gains from such re-ranking, and unified models that already contain a world model~\citep{cen2025worldvla,cen2025rynnvla002} suggest imagining each candidate's consequences before acting, as in latent-space planning~\citep{hafner2018planet,hansen2023tdmpc2,zhou2024dinowm}.
+
+We set out to build exactly this and failed to make it work. Instead of only reporting the failure, we use it to ask a more basic question: \emph{in the states where the policy fails, does a better action chunk exist among those a proposer can produce?} If not, no scorer---however well trained---can help. Our contributions are:
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item A controlled, paired evaluation of five test-time selection variants on the same 100 perturbed episodes, none of which beats the base policy (\cref{sec:selection}).
+  \item Diagnostics separating two failure modes of the scorers: an optimiser's-curse effect~\citep{smith2006optimizer} when overriding the policy on noisy scores, and outcome-trained scorers that learn the value of the \emph{state} rather than of the \emph{action} (\cref{sec:why}).
+  \item A counterfactual branching protocol that measures the head-room of chunk-level selection directly by restoring simulator snapshots, and the finding that the head-room of a single-chunk intervention is small: an oracle upper bound only \oracleGain{} points above the policy (\cref{sec:headroom}). We make no claim about interventions that span several decision points.
+\end{enumerate}
+Code, scripts and all raw results are available at \coderef.
+
+\section{Related work}
+\label{sec:related}
+
+\paragraph{Test-time selection for robot policies.} RoboMonkey~\citep{kwok2025robomonkey} samples and perturbs actions from a VLA and selects one with a learned VLM-based verifier; V-GPS~\citep{nakamoto2024vgps} re-ranks samples of a generalist policy with a value function trained by offline RL. Both report gains; we study the same recipe under robot initial-state perturbations, and add a direct measurement of how much any selector could gain.
+
+\paragraph{World models for action selection.} Latent-space planning with learned dynamics, from PlaNet~\citep{hafner2018planet} and DreamerV3~\citep{hafner2023dreamerv3} to TD-MPC2~\citep{hansen2023tdmpc2} and DINO-WM~\citep{zhou2024dinowm}, chooses actions by imagining their consequences. Unified VLAs such as WorldVLA~\citep{cen2025worldvla} and RynnVLA-002~\citep{cen2025rynnvla002} contain an action-conditioned world model, but in RynnVLA-002's released evaluation code actions come from the action head alone. Our search follows this idea in a small latent space attached to RynnVLA-002, with goals given by language rather than images or rewards.
+
+\paragraph{Why imitation policies fail.} Covariate shift---a policy trained on expert states drifting into states it cannot recover from---is the classic explanation for compounding errors in imitation learning~\citep{ross2011dagger}. Our branching results are consistent with this account for VLAs under initial-state perturbations, and suggest that it limits test-time selection as well.
+
+\section{Setup}
+\label{sec:setup}
+
+\paragraph{Policy (System~1).} RynnVLA-002~\citep{cen2025rynnvla002} is a 7B Chameleon-style~\citep{chameleon2024} autoregressive model trained both as a policy and as an action-conditioned image predictor. We use its released LIBERO-Goal checkpoint (256\,px, two history frames, third-person and wrist views, proprioceptive state, chunks of $H{=}5$ actions predicted by its continuous action head) unchanged, with its evaluation settings.
+
+\paragraph{Benchmark.} We evaluate on LIBERO-Plus~\citep{fei2025liberoplus} Goal. Selection experiments use a fixed set of 100 episodes from the ``Robot Initial States'' category (the first 200 variants of the category, shard 0 of 2); System~1 solves 50 of them. Every variant is compared with System~1 on exactly these episodes, with a paired bootstrap interval and an exact McNemar test. All data used to train scorers come from LIBERO \emph{training} tasks with our own random joint perturbations (Gaussian noise with a per-episode standard deviation of up to 0.3\,rad added to the arm joints); no LIBERO-Plus variant is ever used for training or tuning. The same 100 test episodes were, however, reused as we moved from one selection variant to the next; since no variant improved on System~1, this reuse cannot have inflated a positive result, but it means the numbers in \cref{tab:selection} are not from a single pre-registered comparison.
+
+\input{generated/tab_baseline.tex}
+
+\paragraph{Search (System~2).} Our selection module, LIS (latent imagination search), adds about 50M trainable parameters on top of the frozen backbone and reuses its single forward pass. A flow-matching~\citep{lipman2022flow,liu2022rectified} proposer samples 15 chunks, to which System~1's chunk is added as candidate 1; a latent world model predicts, for each chunk, a pooled latent of the observation $H$ steps later; a scorer assigns each candidate a value and the best is executed. The proposer, world model and a language-similarity evaluator are trained on LIBERO-Goal demonstrations only, with a JEPA-style latent prediction loss~\citep{assran2023ijepa}, contrastive language grounding and ranking against perturbed expert chunks (details in the repository; training took 5{,}000 steps with the backbone frozen).
+
+\section{Test-time selection does not help}
+\label{sec:selection}
+
+We evaluate five selection rules (\cref{tab:selection}):
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Language similarity, argmax.} Score $=\cos(\phi(\hat{\bm z}),\psi(\bm g))$ between the imagined latent and the instruction embedding, minus a smoothness cost; execute the argmax.
+  \item \textbf{Gated variants.} Keep System~1's chunk unless the best candidate's score exceeds System~1's by more than a margin measured in score standard deviations ($z$). Margins are set to the 90th (\gapPninety) and 75th (\gapPseventyfive) percentile of this gap on held-out demonstrations; the second variant also adds a bonus for proximity to System~1 and samples closer to it.
+  \item \textbf{Outcome-trained scorers.} We collected \rollEpisodes{} System-1 rollouts on the training tasks under our perturbations, executing a random proposer candidate instead of System~1 at 30\% of queries (\rollExplored{} of \rollQueries{} queries), and trained two scorers to predict discounted episode success: one from the imagined latent (``imag''), one directly from the current latent, context and candidate chunk (``direct''). At test time System~1 is overridden only if a candidate's predicted success probability exceeds System~1's by 0.05.
+\end{itemize}
+
+\input{generated/tab_selection.tex}
+
+\noindent No variant improves on System~1. Variants that rarely override it are statistically indistinguishable from it, and the two that override it most often are significantly worse (\cref{fig:override}). In other words, the more the search is trusted, the more it hurts.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.62\linewidth, height=5cm, xlabel={System-2 override rate (\%)}, ylabel={$\Delta$ success vs.\ System~1 (pts)},
+  xmin=-3, xmax=78, ymin=-42, ymax=8, grid=major, grid style={draw=black!8}, axis line style={black!40}, tick style={black!40},
+  label style={font=\small}, tick label style={font=\footnotesize}]
+\addplot[black!50, dashed, domain=-3:78, samples=2] {0};
+\addplot[only marks, mark=*, mark size=2.2pt, seriesA, error bars/.cd, y dir=both, y explicit]
+  table[x=override, y=delta, y error minus=lo, y error plus=hi]{generated/override_vs_delta.dat};
+\end{axis}
+\end{tikzpicture}
+\caption{Change in success against how often System~2 overrides System~1, for the five variants in \cref{tab:selection} (bars: paired-bootstrap 95\% CI).}
+\label{fig:override}
+\end{figure}
+
+\section{Why the scorers fail}
+\label{sec:why}
+
+\paragraph{The language-similarity scorer has signal, but not where it is needed.} On \diagN{} held-out demonstration states, the trained scorer prefers the expert chunk to a noisy copy of it \diagPairLow\% of the time at the smallest noise level and \diagPairHigh\% at the largest. Among \emph{proposer} candidates, however, its scores are uncorrelated with closeness to the expert (Spearman $\rho=\diagSpearman$). Its argmax was never closer to the expert chunk than System~1's chunk (\diagCloser\% of states), was farther in \diagFarther\%, and had \diagMseRatio$\times$ System~1's squared error. The scorer learned to reject implausible, jerky chunks---which the proposer rarely produces---not to rank plausible ones. Taking the maximum of 16 noisy scores then almost always selects a candidate whose advantage is noise: the optimiser's curse~\citep{smith2006optimizer}. Gating removes most overrides, and with them most of the damage, but not the absence of useful ones.
+
+\paragraph{Outcome-trained scorers learn state value, not action value.} Both outcome-trained scorers predict held-out episode success well (AUC \aucImag{} for ``imag'' and \aucDirect{} for ``direct'', on \valEpisodes{} validation episodes). Yet on the validation queries where a non-System-1 chunk was executed, the sign of the scorer's preference between that chunk and System~1's agrees with the episode outcome only \rankImag\% and \rankDirect\% of the time---at or below chance---and System~1's chunk sits in the middle of the ranking (on average \sOneRankImag{} and \sOneRankDirect{} of the 15 alternatives are scored above it). Success is largely determined by the state the robot is already in, so the easiest way to predict it is to ignore the candidate. Exploration data with one random alternative per query provide little signal about which chunk is better from the same state.
+
+These findings point to a deeper question. A better scorer could fix both problems---but only if, in the states where System~1 fails, the proposer actually produces chunks that would lead to success.
+
+\section{Measuring head-room by counterfactual branching}
+\label{sec:headroom}
+
+\paragraph{Protocol.} We run System~1 on LIBERO-Goal training tasks with our joint perturbations (a separate set of episodes from those used to train the scorers) and save the full simulator state at every fourth query, together with the observation history and the 16 candidates. After an episode ends, we pick up to three snapshots spread over a failed episode (one in a successful episode), excluding the last. At each such branch point we restore the snapshot and play four branches to the end of the episode: System~1's own chunk, and three chunks drawn at random from the 15 proposer candidates, each followed by System~1. A branch point is \emph{rescuable} if an alternative succeeds while the System-1 branch fails. The fraction of failed episodes with at least one rescuable point gives an oracle upper bound on what a perfect scorer could achieve with this proposer and this budget.
+
+\paragraph{Results.} \Cref{tab:headroom} summarises the outcome. Replaying System~1's own chunk reproduces the original outcome in \repro\% of branches, so the simulator and policy are close to deterministic and differences between branches are attributable to the chunk. From failure states, a single random alternative succeeds only \altFail\% of the time---while from success states it still succeeds \altSucc\% of the time, so the proposer's chunks are not simply bad. Only \rescPts\% of failure branch points (\rescPtsK/\rescPtsN, 95\% CI up to \rescPtsHi\%) and \rescEps\% of failed episodes are rescuable, and the oracle episode success is \oracle\% against System~1's \sOneSucc\%: a gain of \oracleGain{} points, far below the losses incurred by imperfect scorers in \cref{tab:selection}. Rescue is somewhat more likely at the earliest branch point (\posEarly\%, \posEarlyK/\posEarlyN) than in the middle (\posMiddle\%) or late (\posLate\%), consistent with deviations becoming harder to undo as an episode progresses, but it is rare everywhere. Because replaying System~1's own chunk changes the outcome in about one branch in twelve, some of these rescues may reflect simulator or inference nondeterminism rather than a better chunk, so the oracle figure is, if anything, optimistic.
+
+\input{generated/tab_headroom.tex}
+
+\paragraph{Interpretation.} When the perturbed robot starts in an unfamiliar configuration and System~1 fails, the failure is rarely one wrong chunk away from success: after almost any single deviation, System~1 resumes control and fails again. For a selector that changes one decision and then defers to the policy, the bottleneck is therefore the policy's behaviour in these states, not the choice among its candidates. This does not establish the same ceiling for repeated selection: recovery may need several coordinated chunks, and System~1 may undo an initially helpful intervention, both of which our protocol cannot capture. This is consistent with the classic covariate-shift account of imitation learning~\citep{ross2011dagger}: a policy trained on expert states cannot recover from states it has not seen, and choosing among its own proposals does not change which states it can recover from.
+
+\section{Discussion and limitations}
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Scope.} One policy (RynnVLA-002), one suite (Goal) and one perturbation type (robot initial state) are studied; other perturbations (camera, lighting, layout) or other policies may leave more head-room.
+  \item \textbf{Budget.} We test three random alternatives at up to three branch points per failed episode. With all 15 alternatives or more branch points the oracle bound would be higher, and we have not measured by how much. A single alternative succeeds from a failure state \altFail\% of the time; if alternatives at a point succeeded independently, 15 of them would rescue up to about \altIndepFifteen\% of failure points. Outcomes from the same state are correlated, so this is optimistic, but it means our bound is specific to a budget of three alternatives and should not be read as a bound for exhaustive search.
+  \item \textbf{One-chunk deviations.} This is the main limitation of the head-room analysis. Each branch deviates from System~1 for one chunk only and then returns control to it, so the rescue rate bounds single-chunk selection, not repeated selection over several consecutive decision points: recovery may require several coordinated chunks, and System~1 may undo a helpful intervention. Our selection experiments (\cref{tab:selection}) do select at every decision point, but with imperfect scorers, so they do not bound repeated selection either. The direct test is to branch with interventions of increasing horizon (alternatives in control for 1, 2, 4, \ldots{} decision points, or until the end of the episode); this separates the recovery capability of the candidate generator from the constraints of the branching protocol, and we have released code for it.
+  \item \textbf{Training data.} The scorers were trained on a few hundred rollouts; larger or same-state contrastive data might rank better. The head-room result limits what any such scorer can achieve with this proposer.
+\end{itemize}
+
+\noindent For practitioners, the branching protocol is a cheap check to run \emph{before} investing in a verifier: if few failures are rescuable by the proposer's own candidates, effort is better spent on the policy itself, for example on recovery data in perturbed states~\citep{ross2011dagger}, than on test-time selection.
+
+\section{Conclusion}
+A latent imagination search over a strong VLA's own action proposals did not improve robustness to perturbed robot initial states, under any of five scorers. Counterfactual branching shows that this is not merely a scorer problem: from the states where the policy fails, its proposals almost never lead to success, so even a perfect scorer choosing one chunk and then deferring to the policy would add only a few points; the ceiling for selection over several consecutive decisions remains to be measured. Test-time selection can only choose among the futures a policy can already reach; measuring how many of those futures succeed is a cheap first step before building a verifier.
+
+\section*{Acknowledgements}
+This work builds on the code and models released by the authors of RynnVLA-002~\citep{cen2025rynnvla002} and on the LIBERO-Plus benchmark~\citep{fei2025liberoplus}.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}

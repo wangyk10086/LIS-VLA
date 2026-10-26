@@ -1,0 +1,62 @@
+
+\begin{table}[t]
+\centering
+\caption{Controlled toy experiment on 200 held-out sequences (mean $\pm$ s.d.\ over 3 seeds). ``Before'' is the untrained System~2 (zero-initialised world model, i.e.\ identity dynamics); ``after'' is after training. Cosine similarities are computed between flattened latent sets; note that $E_{\mathrm{obs}}$ is itself trained, so the copy baseline changes too.}
+\label{tab:toy}
+\small
+\begin{tabular}{lcc}
+\toprule
+Metric & Before & After \\
+\midrule
+$\cos(\hat{\bm z}_{t+H}, \bm z_{t+H})$ & 0.729 $\pm$ 0.139 & 0.952 $\pm$ 0.011 \\
+$\cos(\bm z_t, \bm z_{t+H})$ (copy baseline) & 0.729 $\pm$ 0.139 & 0.890 $\pm$ 0.068 \\
+Action sensitivity (\%) & 50.0 $\pm$ 0.0 & 75.8 $\pm$ 11.8 \\
+Proposer samples with instructed effect (\%) & 50.4 $\pm$ 2.4 & 99.2 $\pm$ 0.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\begin{minipage}[t]{0.48\linewidth}
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=\linewidth, height=5.2cm, xmode=log, log basis x=2, xtick={1,2,4,8,16,32},
+  xticklabels={1,2,4,8,16,32}, xlabel={Random candidates $N$}, ylabel={Selected chunk correct (\%)},
+  ymin=30, ymax=105, ytick={40,60,80,100}, grid=major, grid style={draw=black!8}, axis line style={black!40},
+  tick style={black!40}, legend columns=3, legend style={at={(0.5,1.03)}, anchor=south, draw=none, font=\footnotesize, /tikz/every even column/.append style={column sep=6pt}},
+  label style={font=\small}, tick label style={font=\footnotesize}]
+\addplot[seriesA, line width=1.2pt, mark=*, mark size=2pt, error bars/.cd, y dir=both, y explicit]
+  table[x=N, y=after, y error=after_sd]{generated/search_curve.dat};
+\addlegendentry{trained}
+\addplot[seriesB, line width=1.2pt, mark=square*, mark size=2pt, error bars/.cd, y dir=both, y explicit]
+  table[x=N, y=before, y error=before_sd]{generated/search_curve.dat};
+\addlegendentry{untrained}
+\addplot[black!50, dashed, domain=1:32, samples=2] {50};
+\addlegendentry{chance}
+\end{axis}
+\end{tikzpicture}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\linewidth}
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 2, horizontal sep=1.3cm, vertical sep=1.25cm},
+  width=0.58\linewidth, height=2.9cm, grid=major, grid style={draw=black!8}, axis line style={black!40},
+  tick style={black!40}, tick label style={font=\scriptsize}, title style={font=\footnotesize, yshift=-1ex},
+  xtick={0,200,400}, ymin=0, scaled y ticks=false, yticklabel style={/pgf/number format/fixed, /pgf/number format/precision=2}]
+\nextgroupplot[title={$\mathcal{L}_{\mathrm{fm}}$}]
+\addplot[seriesA, line width=1pt] table[x=step, y=lis_fm]{generated/loss_curves.dat};
+\nextgroupplot[title={$\mathcal{L}_{\mathrm{wm}}$}]
+\addplot[seriesA, line width=1pt] table[x=step, y=lis_wm]{generated/loss_curves.dat};
+\nextgroupplot[title={$\mathcal{L}_{\mathrm{lang}}$}, xlabel={\scriptsize step}]
+\addplot[seriesA, line width=1pt] table[x=step, y=lis_lang_nce]{generated/loss_curves.dat};
+\nextgroupplot[title={$\mathcal{L}_{\mathrm{rank}}$}, xlabel={\scriptsize step}]
+\addplot[seriesA, line width=1pt] table[x=step, y=lis_rank]{generated/loss_curves.dat};
+\end{groupplot}
+\end{tikzpicture}
+\end{minipage}
+\caption{Toy experiment. \emph{Left:} imagination search over $N$ uniformly random chunks; a chunk is correct if it produces the instructed marker (each random chunk is correct with probability 0.5). Error bars: s.d.\ over 3 seeds, 200 held-out sequences each. \emph{Right:} training losses (mean over seeds, 20-step moving average).}
+\label{fig:toy}
+\end{figure}
+
+\Cref{tab:toy} and \cref{fig:toy} summarise the results. After training, the world model is action-sensitive in 75.8\% of held-out cases, and selecting among random chunks with the evaluator's score raises the fraction of chunks with the instructed effect from 47.7\% at $N{=}1$ (chance) to 99.7\% at $N{=}32$. The untrained System~2 stays near chance, as expected from its identity dynamics. The trained proposer alone also learns to produce the instructed effect, so in this toy task search is not \emph{needed}; the experiment is designed only to show that the world model and evaluator implement a working selection signal when the dynamics are learnable from the latent state.

@@ -1,0 +1,9 @@
+{
+ "mode": "direct",
+ "episodes_train": 477,
+ "episodes_val": 84,
+ "val_auc_success": 0.915,
+ "explored_val_queries": 1002,
+ "ranking_agrees_with_outcome": 0.376,
+ "system1_rank_mean": 9.74
+}

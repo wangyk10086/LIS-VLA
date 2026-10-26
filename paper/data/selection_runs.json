@@ -1,0 +1,10 @@
+{"_note": "Paired comparisons on the same 100 LIBERO-Plus Goal / Robot Initial States episodes (System 1 baseline 50/100). Source: /workspace/results/step1/summary.txt and step2/summary.txt (tools/compare_eval.py: bootstrap 95% CI, exact McNemar).",
+ "runs": [
+  {"id": "pilot", "label": "Language-similarity scorer, argmax over 16", "new": 37, "diff": -13.0, "ci": [-24.0, -1.0], "new_wins": 11, "base_wins": 24, "p": 0.041, "override": 71.8, "latency_s": 0.783},
+  {"id": "A_gate_p90", "label": "Language scorer + z-score gate (p90)", "new": 44, "diff": -6.0, "ci": [-13.0, 1.0], "new_wins": 3, "base_wins": 9, "p": 0.146, "override": 7.9, "latency_s": 1.149},
+  {"id": "B_gate_p75_trust", "label": "Language scorer + gate (p75) + S1 prior", "new": 50, "diff": 0.0, "ci": [0.0, 0.0], "new_wins": 0, "base_wins": 0, "p": 1.0, "override": 0.2, "latency_s": 1.084},
+  {"id": "imag", "label": "Outcome-trained value of imagined latent, margin 0.05", "new": 49, "diff": -1.0, "ci": [-5.0, 3.0], "new_wins": 2, "base_wins": 3, "p": 1.0, "override": 3.4, "latency_s": 1.185},
+  {"id": "direct", "label": "Outcome-trained Q(z, ctx, g, A), margin 0.05", "new": 22, "diff": -28.0, "ci": [-39.0, -17.0], "new_wins": 5, "base_wins": 33, "p": 4.26e-06, "override": 44.1, "latency_s": 1.124}],
+ "scorers": {"rollouts": 561, "rollout_success": 0.512, "rollout_success_sigma0": 0.893, "explored_queries": 6613, "queries": 22419,
+  "imag": {"episodes_train": 477, "episodes_val": 84, "val_auc_success": 0.797, "ranking_agrees_with_outcome": 0.486, "system1_rank_mean": 7.79},
+  "direct": {"episodes_train": 477, "episodes_val": 84, "val_auc_success": 0.915, "ranking_agrees_with_outcome": 0.376, "system1_rank_mean": 9.74}}}

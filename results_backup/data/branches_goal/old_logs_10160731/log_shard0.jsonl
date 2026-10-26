@@ -1,0 +1,60 @@
+{"id": 100000, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 289.3}
+{"id": 100002, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 283.1}
+{"id": 100004, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 270.7}
+{"id": 100006, "task": 6, "sigma": 0.22, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 128.3, "error": null}
+{"id": 100008, "task": 8, "sigma": 0.146, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 106.8, "error": null}
+{"id": 100010, "task": 0, "sigma": 0.144, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 176.0, "error": null}
+{"id": 100012, "task": 2, "sigma": 0.108, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [2], "seconds": 188.4, "error": null}
+{"id": 100014, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 274.2}
+{"id": 100016, "task": 6, "sigma": 0.058, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 119.3, "error": null}
+{"id": 100018, "task": 8, "error": "ValueError: executing action in terminated episode", "seconds": 295.2}
+{"id": 100020, "task": 0, "sigma": 0.165, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 176.1, "error": null}
+{"id": 100022, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 291.2}
+{"id": 100024, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 296.9}
+{"id": 100026, "task": 6, "sigma": 0.076, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 124.0, "error": null}
+{"id": 100028, "task": 8, "error": "ValueError: executing action in terminated episode", "seconds": 302.3}
+{"id": 100030, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 308.5}
+{"id": 100032, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 306.8}
+{"id": 100034, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 294.6}
+{"id": 100036, "task": 6, "sigma": 0.098, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 140.4, "error": null}
+{"id": 100038, "task": 8, "error": "ValueError: executing action in terminated episode", "seconds": 293.1}
+{"id": 100040, "task": 0, "sigma": 0.091, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 217.4, "error": null}
+{"id": 100042, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 291.1}
+{"id": 100044, "task": 4, "sigma": 0.063, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 116.4, "error": null}
+{"id": 100046, "task": 6, "sigma": 0.114, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [1], "seconds": 252.1, "error": null}
+{"id": 100048, "task": 8, "sigma": 0.137, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 107.7, "error": null}
+{"id": 100050, "task": 0, "sigma": 0.107, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 178.2, "error": null}
+{"id": 100052, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 289.3}
+{"id": 100054, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 306.8}
+{"id": 100056, "task": 6, "sigma": 0.178, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 142.2, "error": null}
+{"id": 100058, "task": 8, "sigma": 0.13, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 120.0, "error": null}
+{"id": 100060, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 309.0}
+{"id": 100062, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 315.7}
+{"id": 100064, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 291.7}
+{"id": 100066, "task": 6, "sigma": 0.261, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 120.8, "error": null}
+{"id": 100068, "task": 8, "sigma": 0.083, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 116.8, "error": null}
+{"id": 100070, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 313.7}
+{"id": 100072, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 305.9}
+{"id": 100074, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 308.7}
+{"id": 100076, "task": 6, "error": "ValueError: executing action in terminated episode", "seconds": 312.3}
+{"id": 100078, "task": 8, "sigma": 0.28, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 129.2, "error": null}
+{"id": 100080, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 309.9}
+{"id": 100082, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 307.5}
+{"id": 100084, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 305.1}
+{"id": 100086, "task": 6, "sigma": 0.279, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 160.4, "error": null}
+{"id": 100088, "task": 8, "sigma": 0.185, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 133.7, "error": null}
+{"id": 100090, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 292.2}
+{"id": 100092, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 301.2}
+{"id": 100094, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 300.2}
+{"id": 100096, "task": 6, "error": "ValueError: executing action in terminated episode", "seconds": 302.0}
+{"id": 100098, "task": 8, "error": "ValueError: executing action in terminated episode", "seconds": 290.4}
+{"id": 100100, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 299.0}
+{"id": 100102, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 291.0}
+{"id": 100104, "task": 4, "error": "ValueError: executing action in terminated episode", "seconds": 317.2}
+{"id": 100106, "task": 6, "sigma": 0.081, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [2], "seconds": 188.7, "error": null}
+{"id": 100108, "task": 8, "error": "ValueError: executing action in terminated episode", "seconds": 299.2}
+{"id": 100110, "task": 0, "error": "ValueError: executing action in terminated episode", "seconds": 299.9}
+{"id": 100112, "task": 2, "error": "ValueError: executing action in terminated episode", "seconds": 308.5}
+{"id": 100114, "task": 4, "sigma": 0.157, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [3], "seconds": 119.4, "error": null}
+{"id": 100116, "task": 6, "sigma": 0.265, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [2], "seconds": 181.2, "error": null}
+{"id": 100118, "task": 8, "sigma": 0.237, "main_success": true, "points": 1, "s1_branch_success": [true], "alt_success": [2], "seconds": 176.0, "error": null}

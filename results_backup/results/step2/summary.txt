@@ -1,0 +1,47 @@
+### step 2 summary  2026-10-15 23:24 UTC
+rollouts: 561 episodes
+  success rate 0.512  (sigma=0: 0.893)  explored queries 6613 / 22419  errors 0
+== scorer imag (held-out rollouts)
+{
+ "mode": "imag",
+ "episodes_train": 477,
+ "episodes_val": 84,
+ "val_auc_success": 0.797,
+ "explored_val_queries": 1002,
+ "ranking_agrees_with_outcome": 0.486,
+ "system1_rank_mean": 7.79
+}== scorer direct (held-out rollouts)
+{
+ "mode": "direct",
+ "episodes_train": 477,
+ "episodes_val": 84,
+ "val_auc_success": 0.915,
+ "explored_val_queries": 1002,
+ "ranking_agrees_with_outcome": 0.376,
+ "system1_rank_mean": 9.74
+}== LIBERO-Plus Goal / Robot Initial States, scorer imag, margin 0.05
+shared episodes: 100 (baseline has 834, new has 100; errors in new: 0)
+| group | n | baseline | new | diff (pts) | 95% CI | new-only wins | base-only wins | McNemar p |
+|---|---|---|---|---|---|---|---|---|
+| ALL | 100 | 50.0 | 49.0 | -1.0 | [-5.0, +3.0] | 2 | 3 | 1 |
+| Robot Initial States | 100 | 50.0 | 49.0 | -1.0 | [-5.0, +3.0] | 2 | 3 | 1 |
+new: mean query latency 1.185 s, System-2 override rate 3.4%
+== LIBERO-Plus Goal / Robot Initial States, scorer direct, margin 0.05
+shared episodes: 100 (baseline has 834, new has 100; errors in new: 0)
+| group | n | baseline | new | diff (pts) | 95% CI | new-only wins | base-only wins | McNemar p |
+|---|---|---|---|---|---|---|---|---|
+| ALL | 100 | 50.0 | 22.0 | -28.0 | [-39.0, -17.0] | 5 | 33 | 4.26e-06 |
+| Robot Initial States | 100 | 50.0 | 22.0 | -28.0 | [-39.0, -16.0] | 5 | 33 | 4.26e-06 |
+new: mean query latency 1.124 s, System-2 override rate 44.1%
+== reference: step-1 language-similarity scorer, gated (A)
+shared episodes: 100 (baseline has 834, new has 100; errors in new: 0)
+| group | n | baseline | new | diff (pts) | 95% CI | new-only wins | base-only wins | McNemar p |
+|---|---|---|---|---|---|---|---|---|
+| ALL | 100 | 50.0 | 44.0 | -6.0 | [-13.0, +1.0] | 3 | 9 | 0.146 |
+== errors (tails)
+-- /workspace/results/step2/logs/collect_0.log
+-- /workspace/results/step2/logs/collect_1.log
+-- /workspace/results/step2/logs/eval_direct.log
+-- /workspace/results/step2/logs/eval_imag.log
+-- /workspace/results/step2/logs/train_direct.log
+-- /workspace/results/step2/logs/train_imag.log
