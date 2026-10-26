@@ -18,7 +18,18 @@ pat = re.compile(r"(\d+)/(\d+) = ([\d.]+)% \[([\d.]+), ([\d.]+)\]")
 
 def frac(s):
     k, n, p, lo, hi = pat.match(s).groups()
-    return f"{k}/{n}", f"{p}", f"[{lo}, {hi}]"
+    return f"{k}/{n}", f"{p}", f"[{lo},&nbsp;{hi}]"
+
+
+def nb(x):
+    """Signed number that never wraps: Unicode minus, no spaces."""
+    x = str(x)
+    return "0" if x in ("+0", "-0") else x.replace("-", "\u2212")
+
+
+def ci(lo, hi):
+    """Interval kept on one line in GitHub tables."""
+    return f"[{nb(lo)},&nbsp;{nb(hi)}]"
 
 
 L = []
@@ -43,7 +54,7 @@ names = {"goal_vanilla_s1": "LIBERO-Goal (standard)", "goal_plus_s1": "LIBERO-Pl
 for job, label in names.items():
     for cat, r in p0[job].items():
         name = label if cat in ("standard", "ALL") else f"&nbsp;&nbsp;{label} / {cat}"
-        w(f"| {name} | {r['n']} | {r['rate']:.1f} | [{r['ci95'].replace('-', ', ')}] |")
+        w(f"| {name} | {r['n']} | {r['rate']:.1f} | {ci(*r['ci95'].split('-'))} |")
 w("")
 w("### 2. Test-time selection vs. System 1 (same 100 paired episodes)")
 w("")
@@ -51,13 +62,23 @@ w("LIBERO-Plus Goal, category *Robot Initial States* (first 200 variants, shard 
   "50/100. 16 candidates per decision (candidate 1 = System 1). Override = share of decisions where a non-System-1 chunk "
   "was executed. Wins = episodes solved only by the variant / only by System 1. CI: paired bootstrap; p: exact McNemar.")
 w("")
-w("| Selection rule | Override (%) | Success /100 | Δ (pts) | 95% CI | Wins | p | Query latency (s) |")
-w("|---|---:|---:|---:|---|---:|---:|---:|")
-w("| System 1 only | 0.0 | 50 | – | – | – | – | – |")
+short = {"pilot": "Language score, argmax", "A_gate_p90": "Language score + gate (p90)",
+         "B_gate_p75_trust": "Language score + gate (p75) + prior", "imag": "Learned value, imagined latent",
+         "direct": "Learned Q(state, action)"}
+w("| Selection rule | Override | Success | Δ vs. S1 (95% CI) | Wins | p |")
+w("|:---|---:|---:|:---|:---:|---:|")
+w("| System 1 only | 0% | 50/100 | – | – | – |")
 for r in sel["runs"]:
-    p = f"{r['p']:.2g}" if r["p"] < 0.01 else f"{r['p']:.3f}"
-    w(f"| {r['label']} | {r['override']:.1f} | {r['new']} | {r['diff']:+.0f} | [{r['ci'][0]:+.0f}, {r['ci'][1]:+.0f}] | "
-      f"{r['new_wins']}/{r['base_wins']} | {p} | {r['latency_s']:.2f} |")
+    p = f"{r['p']:.1e}".replace("e-0", "e\u2212") if r["p"] < 0.01 else f"{r['p']:.3f}"
+    d = f"{r['diff']:+.0f}".replace("+0", "0") if r["diff"] == 0 else nb(f"{r['diff']:+.0f}")
+    lo, hi = f"{r['ci'][0]:+.0f}", f"{r['ci'][1]:+.0f}"
+    w(f"| {short[r['id']]} | {r['override']:.1f}% | {r['new']}/100 | **{d}**&nbsp;{ci(lo, hi)} | "
+      f"{r['new_wins']}/{r['base_wins']} | {p} |")
+w("")
+w("*Language score*: cosine between the imagined future latent and the instruction, minus a smoothness cost. "
+  "*Gate*: keep System 1 unless the best candidate beats it by the 90th / 75th percentile of the score gap; *prior*: "
+  "bonus for staying close to System 1. *Learned value / Q*: scorers trained on our own outcome-labelled rollouts, "
+  "System 1 overridden only if predicted success is higher by 0.05. Mean query latency was 0.8–1.2 s for all variants.")
 w("")
 w("### 3. Why the scorers fail")
 w("")

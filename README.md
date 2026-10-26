@@ -13,27 +13,29 @@
 
 | Benchmark | Episodes | Success (%) | 95% CI |
 |---|---:|---:|---|
-| LIBERO-Goal (standard) | 100 | 98.0 | [93.0, 99.4] |
-| LIBERO-Plus Goal | 834 | 56.8 | [53.4, 60.2] |
-| &nbsp;&nbsp;LIBERO-Plus Goal / Objects Layout | 425 | 60.9 | [56.2, 65.5] |
-| &nbsp;&nbsp;LIBERO-Plus Goal / Robot Initial States | 409 | 52.6 | [47.7, 57.4] |
-| LIBERO-10 (standard) | 100 | 94.0 | [87.5, 97.2] |
-| LIBERO-Plus 10 | 705 | 58.9 | [55.2, 62.4] |
-| &nbsp;&nbsp;LIBERO-Plus 10 / Objects Layout | 312 | 71.8 | [66.6, 76.5] |
-| &nbsp;&nbsp;LIBERO-Plus 10 / Robot Initial States | 393 | 48.6 | [43.7, 53.5] |
+| LIBERO-Goal (standard) | 100 | 98.0 | [93.0,&nbsp;99.4] |
+| LIBERO-Plus Goal | 834 | 56.8 | [53.4,&nbsp;60.2] |
+| &nbsp;&nbsp;LIBERO-Plus Goal / Objects Layout | 425 | 60.9 | [56.2,&nbsp;65.5] |
+| &nbsp;&nbsp;LIBERO-Plus Goal / Robot Initial States | 409 | 52.6 | [47.7,&nbsp;57.4] |
+| LIBERO-10 (standard) | 100 | 94.0 | [87.5,&nbsp;97.2] |
+| LIBERO-Plus 10 | 705 | 58.9 | [55.2,&nbsp;62.4] |
+| &nbsp;&nbsp;LIBERO-Plus 10 / Objects Layout | 312 | 71.8 | [66.6,&nbsp;76.5] |
+| &nbsp;&nbsp;LIBERO-Plus 10 / Robot Initial States | 393 | 48.6 | [43.7,&nbsp;53.5] |
 
 ### 2. Test-time selection vs. System 1 (same 100 paired episodes)
 
 LIBERO-Plus Goal, category *Robot Initial States* (first 200 variants, shard 0 of 2 → 100 episodes); System 1 solves 50/100. 16 candidates per decision (candidate 1 = System 1). Override = share of decisions where a non-System-1 chunk was executed. Wins = episodes solved only by the variant / only by System 1. CI: paired bootstrap; p: exact McNemar.
 
-| Selection rule | Override (%) | Success /100 | Δ (pts) | 95% CI | Wins | p | Query latency (s) |
-|---|---:|---:|---:|---|---:|---:|---:|
-| System 1 only | 0.0 | 50 | – | – | – | – | – |
-| Language-similarity scorer, argmax over 16 | 71.8 | 37 | -13 | [-24, -1] | 11/24 | 0.041 | 0.78 |
-| Language scorer + z-score gate (p90) | 7.9 | 44 | -6 | [-13, +1] | 3/9 | 0.146 | 1.15 |
-| Language scorer + gate (p75) + S1 prior | 0.2 | 50 | +0 | [+0, +0] | 0/0 | 1.000 | 1.08 |
-| Outcome-trained value of imagined latent, margin 0.05 | 3.4 | 49 | -1 | [-5, +3] | 2/3 | 1.000 | 1.19 |
-| Outcome-trained Q(z, ctx, g, A), margin 0.05 | 44.1 | 22 | -28 | [-39, -17] | 5/33 | 4.3e-06 | 1.12 |
+| Selection rule | Override | Success | Δ vs. S1 (95% CI) | Wins | p |
+|:---|---:|---:|:---|:---:|---:|
+| System 1 only | 0% | 50/100 | – | – | – |
+| Language score, argmax | 71.8% | 37/100 | **−13**&nbsp;[−24,&nbsp;−1] | 11/24 | 0.041 |
+| Language score + gate (p90) | 7.9% | 44/100 | **−6**&nbsp;[−13,&nbsp;+1] | 3/9 | 0.146 |
+| Language score + gate (p75) + prior | 0.2% | 50/100 | **0**&nbsp;[0,&nbsp;0] | 0/0 | 1.000 |
+| Learned value, imagined latent | 3.4% | 49/100 | **−1**&nbsp;[−5,&nbsp;+3] | 2/3 | 1.000 |
+| Learned Q(state, action) | 44.1% | 22/100 | **−28**&nbsp;[−39,&nbsp;−17] | 5/33 | 4.3e−6 |
+
+*Language score*: cosine between the imagined future latent and the instruction, minus a smoothness cost. *Gate*: keep System 1 unless the best candidate beats it by the 90th / 75th percentile of the score gap; *prior*: bonus for staying close to System 1. *Learned value / Q*: scorers trained on our own outcome-labelled rollouts, System 1 overridden only if predicted success is higher by 0.05. Mean query latency was 0.8–1.2 s for all variants.
 
 ### 3. Why the scorers fail
 
@@ -67,14 +69,14 @@ The scorers predict *whether* an episode will succeed well, but their preference
 
 | Quantity | Count | % | 95% CI |
 |---|---:|---:|---|
-| System 1 episode success | 55/115 | 47.8 | [38.9, 56.9] |
-| System 1 branch reproduces the original outcome | 216/235 | 91.9 | [87.7, 94.8] |
-| Failure branch points rescued by ≥1 of 3 alternatives | 8/163 | 4.9 | [2.5, 9.4] |
-| &nbsp;&nbsp;early branch point | 5/47 | 10.6 | [4.6, 22.6] |
-| &nbsp;&nbsp;middle branch point | 2/56 | 3.6 | [1.0, 12.1] |
-| &nbsp;&nbsp;late branch point | 1/60 | 1.7 | [0.3, 8.9] |
-| Failed episodes rescued at any branch point | 8/60 | 13.3 | [6.9, 24.2] |
-| Oracle episode success (System 1 + rescued) | 63/115 | 54.8 | [45.7, 63.6] |
+| System 1 episode success | 55/115 | 47.8 | [38.9,&nbsp;56.9] |
+| System 1 branch reproduces the original outcome | 216/235 | 91.9 | [87.7,&nbsp;94.8] |
+| Failure branch points rescued by ≥1 of 3 alternatives | 8/163 | 4.9 | [2.5,&nbsp;9.4] |
+| &nbsp;&nbsp;early branch point | 5/47 | 10.6 | [4.6,&nbsp;22.6] |
+| &nbsp;&nbsp;middle branch point | 2/56 | 3.6 | [1.0,&nbsp;12.1] |
+| &nbsp;&nbsp;late branch point | 1/60 | 1.7 | [0.3,&nbsp;8.9] |
+| Failed episodes rescued at any branch point | 8/60 | 13.3 | [6.9,&nbsp;24.2] |
+| Oracle episode success (System 1 + rescued) | 63/115 | 54.8 | [45.7,&nbsp;63.6] |
 | Single random alternative succeeds, from a failure state | | 2.7 | |
 | Single random alternative succeeds, from a success state | | 93.1 | |
 
