@@ -4,6 +4,85 @@
 
 ![LIS-VLA architecture](rynnvla-002/assets/lis_vla_architecture.png)
 
+<!-- RESULTS:START -->
+## Results
+
+**Summary.** On LIBERO-Plus robot-initial-state perturbations, LIS did **not** improve over the unmodified RynnVLA-002 policy (System 1) under any of five scorers, and the two variants that overrode System 1 most often were significantly worse. Counterfactual branching shows that, for a selector that replaces **one** action chunk and then hands control back to System 1, a perfect scorer could gain at most about 7.0 points. Interventions spanning several consecutive decision points were not evaluated (see *Open question* below). Paper: [`paper/main.pdf`](paper/main.pdf) (workshop version: [`paper/corl_tag/main_tag.pdf`](paper/corl_tag/main_tag.pdf)); raw per-episode results: [`results_backup/`](results_backup/).
+
+### 1. System 1 baselines (released RynnVLA-002 checkpoints)
+
+| Benchmark | Episodes | Success (%) | 95% CI |
+|---|---:|---:|---|
+| LIBERO-Goal (standard) | 100 | 98.0 | [93.0, 99.4] |
+| LIBERO-Plus Goal | 834 | 56.8 | [53.4, 60.2] |
+| &nbsp;&nbsp;LIBERO-Plus Goal / Objects Layout | 425 | 60.9 | [56.2, 65.5] |
+| &nbsp;&nbsp;LIBERO-Plus Goal / Robot Initial States | 409 | 52.6 | [47.7, 57.4] |
+| LIBERO-10 (standard) | 100 | 94.0 | [87.5, 97.2] |
+| LIBERO-Plus 10 | 705 | 58.9 | [55.2, 62.4] |
+| &nbsp;&nbsp;LIBERO-Plus 10 / Objects Layout | 312 | 71.8 | [66.6, 76.5] |
+| &nbsp;&nbsp;LIBERO-Plus 10 / Robot Initial States | 393 | 48.6 | [43.7, 53.5] |
+
+### 2. Test-time selection vs. System 1 (same 100 paired episodes)
+
+LIBERO-Plus Goal, category *Robot Initial States* (first 200 variants, shard 0 of 2 → 100 episodes); System 1 solves 50/100. 16 candidates per decision (candidate 1 = System 1). Override = share of decisions where a non-System-1 chunk was executed. Wins = episodes solved only by the variant / only by System 1. CI: paired bootstrap; p: exact McNemar.
+
+| Selection rule | Override (%) | Success /100 | Δ (pts) | 95% CI | Wins | p | Query latency (s) |
+|---|---:|---:|---:|---|---:|---:|---:|
+| System 1 only | 0.0 | 50 | – | – | – | – | – |
+| Language-similarity scorer, argmax over 16 | 71.8 | 37 | -13 | [-24, -1] | 11/24 | 0.041 | 0.78 |
+| Language scorer + z-score gate (p90) | 7.9 | 44 | -6 | [-13, +1] | 3/9 | 0.146 | 1.15 |
+| Language scorer + gate (p75) + S1 prior | 0.2 | 50 | +0 | [+0, +0] | 0/0 | 1.000 | 1.08 |
+| Outcome-trained value of imagined latent, margin 0.05 | 3.4 | 49 | -1 | [-5, +3] | 2/3 | 1.000 | 1.19 |
+| Outcome-trained Q(z, ctx, g, A), margin 0.05 | 44.1 | 22 | -28 | [-39, -17] | 5/33 | 4.3e-06 | 1.12 |
+
+### 3. Why the scorers fail
+
+**Language-similarity evaluator** (offline, 300 held-out LIBERO-Goal demonstration states):
+
+| Diagnostic | Value |
+|---|---:|
+| P(score(expert) > score(expert + N(0, 0.05²) noise)) | 91.4% |
+| P(score(expert) > score(expert + N(0, 0.1²) noise)) | 96.9% |
+| P(score(expert) > score(expert + N(0, 0.2²) noise)) | 99.1% |
+| P(score(expert) > score(expert + N(0, 0.3²) noise)) | 99.8% |
+| Spearman(score, closeness to expert) among proposer candidates | 0.063 |
+| Argmax closer to expert than System 1 | 0.0% |
+| Argmax farther from expert than System 1 | 76.3% |
+| MSE to expert: System 1 / argmax | 0.00352 / 0.01569 |
+| Candidates scored above System 1 (mean, of 15) | 4.87 |
+| Best-vs-System-1 score gap in s.d., percentiles 50/75/90/95 | 0.95 / 1.83 / 2.58 / 2.89 |
+
+**Outcome-trained scorers** (561 rollouts on LIBERO-Goal training tasks with our own joint perturbations; rollout success 51.2%, 89.3% without perturbation; a random candidate was executed at 6,613 of 22,419 decisions):
+
+| Scorer | Train / val episodes | Val AUC (episode success) | Ranking agrees with outcome | Candidates above System 1 (of 15) |
+|---|---:|---:|---:|---:|
+| Value of imagined latent | 477 / 84 | 0.797 | 48.6% | 7.79 |
+| Q(z, ctx, g, A) | 477 / 84 | 0.915 | 37.6% | 9.74 |
+
+The scorers predict *whether* an episode will succeed well, but their preference between two chunks from the same state agrees with the outcome at or below chance.
+
+### 4. Head-room of a single-chunk intervention (counterfactual branching)
+
+115 LIBERO-Goal training-task episodes with our own initial-joint perturbations (never LIBERO-Plus variants). At up to three snapshots per failed episode (one per successful episode) the simulator is restored and four branches are played to the end: System 1's own chunk, and three random proposer candidates, each executed for **one** chunk and followed by System 1.
+
+| Quantity | Count | % | 95% CI |
+|---|---:|---:|---|
+| System 1 episode success | 55/115 | 47.8 | [38.9, 56.9] |
+| System 1 branch reproduces the original outcome | 216/235 | 91.9 | [87.7, 94.8] |
+| Failure branch points rescued by ≥1 of 3 alternatives | 8/163 | 4.9 | [2.5, 9.4] |
+| &nbsp;&nbsp;early branch point | 5/47 | 10.6 | [4.6, 22.6] |
+| &nbsp;&nbsp;middle branch point | 2/56 | 3.6 | [1.0, 12.1] |
+| &nbsp;&nbsp;late branch point | 1/60 | 1.7 | [0.3, 8.9] |
+| Failed episodes rescued at any branch point | 8/60 | 13.3 | [6.9, 24.2] |
+| Oracle episode success (System 1 + rescued) | 63/115 | 54.8 | [45.7, 63.6] |
+| Single random alternative succeeds, from a failure state | | 2.7 | |
+| Single random alternative succeeds, from a success state | | 93.1 | |
+
+### Open question: multi-step interventions
+
+Each branch above changes one chunk and then returns control to System 1, which may undo a helpful intervention; recovery may also need several coordinated chunks. The numbers therefore bound **single-chunk** selection only, not repeated selection. `rynnvla-002/tools/branch_horizons.py` (with `branch_horizons_summary.py` and `exps_lis/runpod/step4_horizons.sh`) implements branching with alternatives in control for 1, 2, 4 or all remaining decision points; it is tested on a mock environment (`tests/test_branch_horizons.py`) but **has not been run** on LIBERO.
+<!-- RESULTS:END -->
+
 ## Core idea
 
 | Component | Place in figure | Implementation (`rynnvla-002/model/lis/modules.py`) |
@@ -125,16 +204,11 @@ python -m pytest -q tests/test_lis_vla.py
 
 Coverage: sequence parsing; attention-mask equivalence with the original and the fix on LIS samples; training forward/backward (every LIS module receives gradients); `lis_fm` / `lis_wm` / `lis_lang_nce` decrease within 60 steps; end-to-end `generate_lis_action` (including CEM and search off); state-dict compatibility and numerical equivalence with the original `ActionHead`; loading from a checkpoint without LIS weights.
 
-## Status and suggested ablations
+## Status
 
-The code runs end to end on a tiny configuration. **It has not yet been trained or evaluated with the 7B model on LIBERO, and there are no success-rate results yet.** Suggested experiments:
+Trained (System 2 only, `lis_only`, 5,000 steps) and evaluated with the 7B RynnVLA-002 LIBERO-Goal checkpoint; see **Results** above. The trained LIS weights were not kept.
 
-1. System 1 (`SEARCH=0`) vs. LIS on the same checkpoint, N ∈ {4, 8, 16, 32};
-2. Evaluator with `lis_rank` / `lis_prog` / `lis_lang_nce` removed one at a time;
-3. Latent-space search vs. pixel-space search (scoring images generated by RynnVLA-002's own world model): success rate and latency;
-4. `lis_only` vs. `all` training scope.
-
-Caveat: the evaluator learns only from expert demonstrations (expert chunks vs. counterfactual chunks), so it learns a preference for "progressing the task the way the expert does"; its reliability outside the demonstration distribution needs to be verified experimentally. A very small `last_search_info["score_std"]` means the candidates are barely distinguishable.
+Caveat: the evaluator learns only from expert demonstrations (expert chunks vs. counterfactual chunks); the results above show that this is not enough to rank plausible candidates.
 
 ## Acknowledgements and license
 
